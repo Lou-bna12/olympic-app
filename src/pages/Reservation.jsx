@@ -1,16 +1,80 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 const Reservation = () => {
+  const [offre, setOffre] = useState('');
+  const [quantite, setQuantite] = useState(1);
+
+  const offres = {
+    solo: { label: 'Offre Solo', prix: 25 },
+    duo: { label: 'Offre Duo', prix: 50 },
+    familiale: { label: 'Offre Familiale', prix: 150 },
+  };
+
+  const handleOffreChange = (e) => {
+    setOffre(e.target.value);
+  };
+
+  const handleQuantiteChange = (e) => {
+    setQuantite(parseInt(e.target.value));
+  };
+
+  const prixTotal = offre ? offres[offre].prix * quantite : 0;
+
   return (
-    <div className="min-h-screen p-4 flex flex-col items-center justify-center bg-fond">
-      <h2 className="text-2xl font-semibold text-blue-600 text-center">
-        Réservation de Billets
-      </h2>
-      <div className="mt-6 flex flex-col items-center">
-        <p className="text-gray-700">
-          Choisissez vos places et validez votre réservation.
-        </p>
-        {/* Formulaire ou composants de réservation à insérer ici */}
+    <div className="min-h-screen bg-gradient-to-br from-white to-blue-50 px-4 py-12 flex items-center justify-center">
+      <div className="w-full max-w-xl bg-white rounded-3xl shadow-lg p-8 md:p-10">
+        <h2 className="text-2xl md:text-3xl font-bold text-center text-[#0051BA] mb-8 uppercase tracking-wide">
+          Réservation de billets
+        </h2>
+
+        {/* Sélection de l’offre */}
+        <div className="mb-6">
+          <label className="block mb-2 text-gray-700 font-semibold">
+            Choisissez une offre :
+          </label>
+          <select
+            value={offre}
+            onChange={handleOffreChange}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0051BA]"
+          >
+            <option value="">-- Sélectionner une offre --</option>
+            {Object.entries(offres).map(([key, value]) => (
+              <option key={key} value={key}>
+                {value.label} - {value.prix} €
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Sélection du nombre de billets */}
+        {offre && (
+          <div className="mb-6">
+            <label className="block mb-2 text-gray-700 font-semibold">
+              Nombre de billets :
+            </label>
+            <input
+              type="number"
+              min="1"
+              value={quantite}
+              onChange={handleQuantiteChange}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0051BA]"
+            />
+          </div>
+        )}
+
+        {/* Total à payer */}
+        {offre && (
+          <div className="mb-6 text-lg text-center font-bold text-green-600">
+            Total à payer : {prixTotal} €
+          </div>
+        )}
+
+        {/* Bouton de paiement */}
+        {offre && (
+          <button className="w-full bg-[#0051BA] hover:bg-[#003f8a] text-white font-bold py-3 rounded-xl shadow-lg transition duration-300">
+            Payer maintenant
+          </button>
+        )}
       </div>
     </div>
   );
