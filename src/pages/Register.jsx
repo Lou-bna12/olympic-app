@@ -2,19 +2,38 @@ import React, { useState, useContext } from 'react';
 import LayoutAuth from '../components/LayoutAuth';
 import { FaFacebookF, FaGoogle, FaApple } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
-import { UserContext } from '../UserContext';
+import { UserContext } from '../context/UserContext'; // Assure-toi que le chemin est correct
 
 const Register = () => {
   const [email, setEmail] = useState('');
   const [nom, setNom] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState(''); // Gestion des erreurs
   const { setUtilisateur } = useContext(UserContext);
   const navigate = useNavigate();
 
   const handleRegister = (e) => {
     e.preventDefault();
-    setUtilisateur({ nom, email });
-    navigate('/dashboard');
+
+    // Validation des champs
+    if (password !== confirmPassword) {
+      setError('Les mots de passe ne correspondent pas');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Le mot de passe doit contenir au moins 6 caractères');
+      return;
+    }
+
+    // Création d'un utilisateur fictif (tu peux le remplacer par une API pour vérifier si l'email existe déjà)
+    const user = { nom, email, role: 'user' };
+
+    // Sauvegarde de l'utilisateur dans localStorage et mise à jour du UserContext
+    localStorage.setItem('utilisateur', JSON.stringify(user)); // Sauvegarde dans localStorage
+    setUtilisateur(user); // Mise à jour du contexte global utilisateur
+
+    navigate('/dashboard'); // Redirection vers le dashboard
   };
 
   return (
@@ -43,6 +62,9 @@ const Register = () => {
           OU CONTINUER AVEC VOTRE E-MAIL
         </h3>
 
+        {/* Affichage des erreurs */}
+        {error && <p className="text-red-500 text-sm">{error}</p>}
+
         <form onSubmit={handleRegister} className="space-y-4 w-full">
           <input
             type="text"
@@ -66,6 +88,14 @@ const Register = () => {
             placeholder="Mot de passe*"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            className="w-full px-4 py-2 text-black rounded border focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+          <input
+            type="password"
+            required
+            placeholder="Confirmer le mot de passe*"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
             className="w-full px-4 py-2 text-black rounded border focus:outline-none focus:ring-2 focus:ring-blue-400"
           />
           <button
