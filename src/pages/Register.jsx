@@ -2,7 +2,7 @@ import React, { useState, useContext } from 'react';
 import LayoutAuth from '../components/LayoutAuth';
 import { FaFacebookF, FaGoogle, FaApple } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
-import { UserContext } from '../context/UserContext'; // Assure-toi que le chemin est correct
+import { UserContext } from '../context/UserContext'; // Assure-toi du chemin correct
 
 const Register = () => {
   const [email, setEmail] = useState('');
@@ -27,13 +27,13 @@ const Register = () => {
     }
 
     // Création d'un utilisateur fictif (tu peux le remplacer par une API pour vérifier si l'email existe déjà)
-    const user = { nom, email, role: 'user' };
+    const user = { nom, email, role: 'user', password }; // Ajout du mot de passe ici pour la simulation
 
     // Sauvegarde de l'utilisateur dans localStorage et mise à jour du UserContext
     localStorage.setItem('utilisateur', JSON.stringify(user)); // Sauvegarde dans localStorage
     setUtilisateur(user); // Mise à jour du contexte global utilisateur
 
-    navigate('/dashboard'); // Redirection vers le dashboard
+    navigate('/login'); // Redirection vers la page de connexion
   };
 
   return (

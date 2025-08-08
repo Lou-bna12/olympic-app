@@ -1,9 +1,19 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useContext } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { FaBars } from 'react-icons/fa';
+import { UserContext } from '../context/UserContext'; // Assure-toi du chemin correct
 
 const Header = () => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { utilisateur, setUtilisateur } = useContext(UserContext); // Récupère l'utilisateur du contexte
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    // Supprimer les données utilisateur du localStorage et du contexte
+    localStorage.removeItem('utilisateur');
+    setUtilisateur(null); // Effacer l'utilisateur du contexte
+    navigate('/login'); // Redirige vers la page de login
+  };
 
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
@@ -36,6 +46,16 @@ const Header = () => {
           <Link to="/reservation" className="hover:text-blue-700">
             Réservation
           </Link>
+
+          {/* Si l'utilisateur est connecté, afficher le bouton Déconnexion */}
+          {utilisateur && (
+            <button
+              onClick={handleLogout}
+              className="text-blue-600 hover:text-blue-800"
+            >
+              Déconnexion
+            </button>
+          )}
         </nav>
       </div>
 
@@ -54,6 +74,16 @@ const Header = () => {
           <Link to="/reservation" className="block hover:text-blue-700">
             Réservation
           </Link>
+
+          {/* Afficher le bouton Déconnexion dans le menu mobile */}
+          {utilisateur && (
+            <button
+              onClick={handleLogout}
+              className="block text-blue-600 hover:text-blue-800"
+            >
+              Déconnexion
+            </button>
+          )}
         </div>
       )}
     </header>

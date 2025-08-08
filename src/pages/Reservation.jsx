@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 const Reservation = () => {
   const [offre, setOffre] = useState('');
   const [quantite, setQuantite] = useState(1);
+  const [error, setError] = useState('');
 
   const offres = {
     solo: { label: 'Offre Solo', prix: 25 },
@@ -12,6 +13,7 @@ const Reservation = () => {
 
   const handleOffreChange = (e) => {
     setOffre(e.target.value);
+    setError(''); // Réinitialiser l'erreur lorsque l'utilisateur change l'offre
   };
 
   const handleQuantiteChange = (e) => {
@@ -20,12 +22,30 @@ const Reservation = () => {
 
   const prixTotal = offre ? offres[offre].prix * quantite : 0;
 
+  const handleSubmit = () => {
+    // Validation de la réservation
+    if (!offre || quantite < 1) {
+      setError(
+        'Veuillez sélectionner une offre et un nombre de billets valide.'
+      );
+      return;
+    }
+
+    // Simulation de réservation (peut être remplacée par une logique de backend)
+    alert(
+      `Réservation effectuée pour ${quantite} billet(s) - Total : ${prixTotal} €`
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-blue-50 px-4 py-12 flex items-center justify-center">
       <div className="w-full max-w-xl bg-white rounded-3xl shadow-lg p-8 md:p-10">
         <h2 className="text-2xl md:text-3xl font-bold text-center text-[#0051BA] mb-8 uppercase tracking-wide">
           Réservation de billets
         </h2>
+
+        {/* Affichage d'erreur si l'utilisateur n'a pas rempli correctement les champs */}
+        {error && <p className="text-red-500 text-sm text-center">{error}</p>}
 
         {/* Sélection de l’offre */}
         <div className="mb-6">
@@ -71,7 +91,10 @@ const Reservation = () => {
 
         {/* Bouton de paiement */}
         {offre && (
-          <button className="w-full bg-[#0051BA] hover:bg-[#003f8a] text-white font-bold py-3 rounded-xl shadow-lg transition duration-300">
+          <button
+            onClick={handleSubmit}
+            className="w-full bg-[#0051BA] hover:bg-[#003f8a] text-white font-bold py-3 rounded-xl shadow-lg transition duration-300"
+          >
             Payer maintenant
           </button>
         )}

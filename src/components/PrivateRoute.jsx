@@ -1,22 +1,23 @@
 import React, { useContext } from 'react';
-import { Navigate } from 'react-router-dom'; // Utilisation de Navigate au lieu de Redirect
-import { UserContext } from '../context/UserContext'; // Correct import
+import { Navigate } from 'react-router-dom';
+import { UserContext } from '../context/UserContext';
 
-const PrivateRoute = ({ component: Component, roles, ...rest }) => {
-  const { utilisateur } = useContext(UserContext);
+// Composant pour gérer les routes privées
+const PrivateRoute = ({ component: Component, roles }) => {
+  const { utilisateur } = useContext(UserContext); // Récupérer l'utilisateur du contexte
 
-  // Si l'utilisateur n'est pas connecté, redirige vers la page login
+  // Si l'utilisateur n'est pas connecté, rediriger vers la page de connexion
   if (!utilisateur) {
-    return <Navigate to="/login" replace />; // Utilisation de Navigate au lieu de Redirect
+    return <Navigate to="/login" />;
   }
 
-  // Si des rôles sont définis et l'utilisateur n'a pas le bon rôle, redirige vers l'accueil
-  if (roles && roles.length > 0 && !roles.includes(utilisateur.role)) {
-    return <Navigate to="/" replace />; // Utilisation de Navigate pour la redirection
+  // Si l'utilisateur n'a pas les rôles nécessaires, rediriger
+  if (roles && !roles.includes(utilisateur.role)) {
+    return <Navigate to="/" />;
   }
 
-  // Si tout est ok, afficher la page demandée
-  return <Component {...rest} />;
+  // Si tout est ok, rendre le composant
+  return <Component />;
 };
 
 export default PrivateRoute;

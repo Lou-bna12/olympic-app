@@ -1,12 +1,12 @@
-import React, { useContext, useState } from 'react';
+import React, { useState, useContext } from 'react';
 import LayoutAuth from '../components/LayoutAuth';
 import { FaFacebookF, FaGoogle, FaApple } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
-import { UserContext } from '../context/UserContext'; // Assure-toi que le chemin est correct
+import { UserContext } from '../context/UserContext';
 
 const Login = () => {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState(''); // Nouveau state pour le mot de passe
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const { setUtilisateur } = useContext(UserContext);
   const navigate = useNavigate();
@@ -14,24 +14,22 @@ const Login = () => {
   const handleLogin = (e) => {
     e.preventDefault();
 
-    // Validation basique de l'email
-    const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    if (!emailPattern.test(email)) {
-      setError('Veuillez entrer un email valide');
+    // Récupérer l'utilisateur stocké dans localStorage
+    const storedUser = JSON.parse(localStorage.getItem('utilisateur'));
+
+    // Validation basique de l'email et du mot de passe
+    if (
+      !storedUser ||
+      storedUser.email !== email ||
+      storedUser.password !== password
+    ) {
+      setError('Email ou mot de passe incorrect');
       return;
     }
 
-    // Validation basique du mot de passe (par exemple, minimum 6 caractères)
-    if (password.length < 6) {
-      setError('Le mot de passe doit contenir au moins 6 caractères');
-      return;
-    }
-
-    // Enregistrer l'utilisateur (avec un rôle par exemple)
-    const user = { email, role: 'user' }; // Exemple avec un rôle 'user'
-    localStorage.setItem('utilisateur', JSON.stringify(user)); // Sauvegarde dans localStorage
-    setUtilisateur(user); // Mise à jour du contexte global utilisateur
-    navigate('/dashboard'); // Redirige vers le dashboard après la connexion
+    // Si l'email et le mot de passe sont valides
+    setUtilisateur(storedUser); // Mise à jour du contexte utilisateur
+    navigate('/dashboard'); // Redirection vers le tableau de bord
   };
 
   return (
@@ -90,7 +88,10 @@ const Login = () => {
           </button>
         </form>
 
-        <p className="mt-6 underline text-sm text-white hover:text-yellow-400 cursor-pointer transition duration-300">
+        <p
+          className="mt-6 underline text-sm text-white hover:text-yellow-400 cursor-pointer transition duration-300"
+          onClick={() => navigate('/forgot-password')} // Redirection vers la page de mot de passe oublié
+        >
           Mot de passe oublié ?
         </p>
       </div>

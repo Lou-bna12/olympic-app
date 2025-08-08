@@ -1,6 +1,6 @@
 import { createContext, useState, useEffect } from 'react';
 
-// Créer le contexte utilisateur
+// Créer un contexte utilisateur
 export const UserContext = createContext();
 
 // Fournisseur du contexte utilisateur
@@ -8,10 +8,10 @@ export const UserProvider = ({ children }) => {
   const [utilisateur, setUtilisateur] = useState(null);
 
   useEffect(() => {
-    // On peut récupérer l'utilisateur du localStorage ou d'une API ici
-    const user = JSON.parse(localStorage.getItem('utilisateur')); // Exemple avec localStorage
+    // Vérifier si un utilisateur est déjà connecté
+    const user = JSON.parse(localStorage.getItem('utilisateur'));
     if (user) {
-      setUtilisateur(user);
+      setUtilisateur(user); // Mettre à jour le contexte avec l'utilisateur
     }
   }, []);
 
