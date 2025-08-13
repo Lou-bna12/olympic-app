@@ -1,52 +1,99 @@
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, ConfigDict  
 from sqlalchemy import create_engine, Column, Integer, String, Float
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, declarative_base
+from typing import Optional
+import os
 
-# Configuration de la base de données PostgreSQL
-DATABASE_URL = "postgresql://username:password@localhost:5432/reservations_db"  # Remplace avec tes infos
-engine = create_engine(DATABASE_URL, echo=True)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+DB_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql+psycopg2://postgres:loubna12@localhost:5432/reservations_db",
+)
+
+engine = create_engine(DB_URL, echo=True, future=True)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Base = declarative_base()
 
-# Modèle de la table Reservation
+# --- Modèle SQLAlchemy ---
 class Reservation(Base):
     __tablename__ = "reservations"
     id = Column(Integer, primary_key=True, index=True)
-    offre = Column(String, index=True)
-    quantite = Column(Integer)
-    prix_total = Column(Float)
-    email = Column(String, index=True)
+    offre = Column(String, index=True, nullable=False)
+    quantite = Column(Integer, nullable=False)
+    prix_total = Column(Float, nullable=False)
+    email = Column(String, index=True, nullable=False)
 
-# Créer la table
 Base.metadata.create_all(bind=engine)
 
-# Création de l'application FastAPI
 app = FastAPI()
 
-# Pydantic model pour la validation des données
+# CORS pour le front React
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# --- Schémas Pydantic ---
 class ReservationCreate(BaseModel):
     offre: str
     quantite: int
     prix_total: float
     email: str
 
-@app.post("/reservations/")
-def create_reservation(reservation: ReservationCreate):
-    db = SessionLocal()
-    db_reservation = Reservation(**reservation.dict())
-    db.add(db_reservation)
-    db.commit()
-    db.refresh(db_reservation)
-    db.close()
-    return db_reservation
+class ReservationOut(BaseModel):
+    id: int
+    offre: str
+    quantite: int
+    prix_total: float
+    email: str
+    
+    model_config = ConfigDict(from_attributes=True)
+   
 
-@app.get("/reservations/{reservation_id}")
+@app.get("/ping")
+def ping():
+    return {"status": "ok"}
+
+# --- Créer ---
+@app.post("/reservations/", response_model=ReservationOut)
+def create_reservation(payload: ReservationCreate):
+    with SessionLocal() as db:
+        r = Reservation(**payload.model_dump())
+        db.add(r)
+        db.commit()
+        db.refresh(r)
+        return r
+
+# --- Lire une réservation ---
+@app.get("/reservations/{reservation_id}", response_model=ReservationOut)
 def read_reservation(reservation_id: int):
-    db = SessionLocal()
-    db_reservation = db.query(Reservation).filter(Reservation.id == reservation_id).first()
-    db.close()
-    if db_reservation is None:
-        raise HTTPException(status_code=404, detail="Reservation not found")
-    return db_reservation
+    with SessionLocal() as db:
+        r = db.query(Reservation).filter(Reservation.id == reservation_id).first()
+        if not r:
+            raise HTTPException(status_code=404, detail="Reservation not found")
+        return r
+
+# --- Lister (optionnellement filtré par email) ---
+@app.get("/reservations/", response_model=list[ReservationOut])
+def list_reservations(email: Optional[str] = None):
+    with SessionLocal() as db:
+        q = db.query(Reservation)
+        if email:
+            q = q.filter(Reservation.email == email)
+        return q.order_by(Reservation.id.desc()).all()
+
+# --- Supprimer ---
+@app.delete("/reservations/{reservation_id}", status_code=204)
+def delete_reservation(reservation_id: int):
+    with SessionLocal() as db:
+        r = db.query(Reservation).filter(Reservation.id == reservation_id).first()
+        if not r:
+            raise HTTPException(status_code=404, detail="Reservation not found")
+        db.delete(r)
+        db.commit()
+        return None

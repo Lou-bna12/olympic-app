@@ -1,22 +1,23 @@
-import React, { useState, useContext } from 'react';
+import React, { useState } from 'react';
 import LayoutAuth from '../components/LayoutAuth';
 import { FaFacebookF, FaGoogle, FaApple } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
-import { UserContext } from '../context/UserContext'; // Assure-toi du chemin correct
 
 const Register = () => {
   const [email, setEmail] = useState('');
   const [nom, setNom] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState(''); // Gestion des erreurs
-  const { setUtilisateur } = useContext(UserContext);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
   const handleRegister = (e) => {
     e.preventDefault();
+    setError('');
 
-    // Validation des champs
+    const emailTrim = email.trim().toLowerCase();
+
+    // Validations
     if (password !== confirmPassword) {
       setError('Les mots de passe ne correspondent pas');
       return;
@@ -26,14 +27,28 @@ const Register = () => {
       return;
     }
 
-    // Création d'un utilisateur fictif (tu peux le remplacer par une API pour vérifier si l'email existe déjà)
-    const user = { nom, email, role: 'user', password }; // Ajout du mot de passe ici pour la simulation
+    // 1) Lire la liste des comptes
+    const users = JSON.parse(localStorage.getItem('users') || '[]');
 
-    // Sauvegarde de l'utilisateur dans localStorage et mise à jour du UserContext
-    localStorage.setItem('utilisateur', JSON.stringify(user)); // Sauvegarde dans localStorage
-    setUtilisateur(user); // Mise à jour du contexte global utilisateur
+    // 2) Empêcher l'email en double
+    if (users.some((u) => u.email.toLowerCase() === emailTrim)) {
+      setError('Cet e-mail est déjà utilisé');
+      return;
+    }
 
-    navigate('/login'); // Redirection vers la page de connexion
+    // 3) Ajouter l'utilisateur (DEMO: mot de passe en clair)
+    const newUser = {
+      nom: nom.trim(),
+      email: emailTrim,
+      password,
+      role: 'user',
+    };
+    users.push(newUser);
+    localStorage.setItem('users', JSON.stringify(users));
+
+    // Ne pas ouvrir de session ici (on ne touche pas à 'utilisateur')
+    // Redirection vers la page de connexion
+    navigate('/login', { replace: true });
   };
 
   return (
@@ -62,7 +77,6 @@ const Register = () => {
           OU CONTINUER AVEC VOTRE E-MAIL
         </h3>
 
-        {/* Affichage des erreurs */}
         {error && <p className="text-red-500 text-sm">{error}</p>}
 
         <form onSubmit={handleRegister} className="space-y-4 w-full">
@@ -106,7 +120,10 @@ const Register = () => {
           </button>
         </form>
 
-        <p className="mt-6 underline text-sm text-white hover:text-yellow-400 cursor-pointer transition duration-300">
+        <p
+          className="mt-6 underline text-sm text-white hover:text-yellow-400 cursor-pointer transition duration-300"
+          onClick={() => navigate('/login')}
+        >
           J’ai déjà un compte ?
         </p>
       </div>

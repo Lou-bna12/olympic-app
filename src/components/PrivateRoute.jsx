@@ -1,22 +1,25 @@
 import React, { useContext } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { UserContext } from '../context/UserContext';
 
-// Composant pour gérer les routes privées
 const PrivateRoute = ({ component: Component, roles }) => {
-  const { utilisateur } = useContext(UserContext); // Récupérer l'utilisateur du contexte
+  const { utilisateur } = useContext(UserContext);
+  const location = useLocation();
 
-  // Si l'utilisateur n'est pas connecté, rediriger vers la page de connexion
+  // Non connecté → login
   if (!utilisateur) {
-    return <Navigate to="/login" />;
+    return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  // Si l'utilisateur n'a pas les rôles nécessaires, rediriger
-  if (roles && !roles.includes(utilisateur.role)) {
-    return <Navigate to="/" />;
+  // Contrôle de rôles (admin, etc.)
+  if (roles?.length) {
+    const role = utilisateur.role || 'user';
+    if (!roles.includes(role)) {
+      return <Navigate to="/dashboard" replace />;
+    }
   }
 
-  // Si tout est ok, rendre le composant
+  // OK → rendre la page demandée
   return <Component />;
 };
 

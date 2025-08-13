@@ -1,18 +1,39 @@
-import { createContext, useState, useEffect } from 'react';
+import { createContext, useEffect, useState } from 'react';
 
-// Créer un contexte utilisateur
-export const UserContext = createContext();
+export const UserContext = createContext({
+  utilisateur: null,
+  setUtilisateur: () => {},
+});
 
-// Fournisseur du contexte utilisateur
 export const UserProvider = ({ children }) => {
-  const [utilisateur, setUtilisateur] = useState(null);
-
-  useEffect(() => {
-    // Vérifier si un utilisateur est déjà connecté
-    const user = JSON.parse(localStorage.getItem('utilisateur'));
-    if (user) {
-      setUtilisateur(user); // Mettre à jour le contexte avec l'utilisateur
+  // localStorage au premier rendu (évite le "flash" déconnecté)
+  const [utilisateur, setUtilisateur] = useState(() => {
+    try {
+      const raw = localStorage.getItem('utilisateur');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
     }
+  });
+
+  // Sync localStorage à chaque changement
+  useEffect(() => {
+    if (utilisateur) {
+      localStorage.setItem('utilisateur', JSON.stringify(utilisateur));
+    } else {
+      localStorage.removeItem('utilisateur');
+    }
+  }, [utilisateur]);
+
+  //  sync entre onglets
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === 'utilisateur') {
+        setUtilisateur(e.newValue ? JSON.parse(e.newValue) : null);
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
   }, []);
 
   return (
