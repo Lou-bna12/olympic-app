@@ -19,7 +19,6 @@ export default function Header() {
           <span className="font-semibold">JO Paris 2024</span>
         </Link>
 
-        {/* On enlève les liens inutiles : pas de Dashboard/Reservation dans la nav */}
         {isAdmin && (
           <NavLink
             to="/admin"
