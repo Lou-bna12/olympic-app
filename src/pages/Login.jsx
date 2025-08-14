@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+// src/pages/Login.jsx
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -7,30 +8,27 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const nextPath = useMemo(() => {
-    const stateNext =
-      location.state?.from?.pathname || location.state?.from || null;
-    const q = new URLSearchParams(location.search);
-    return stateNext || q.get('next') || '/dashboard';
-  }, [location]);
+  const searchParams = new URLSearchParams(location.search);
+  const nextFromQuery = searchParams.get('next');
+  const nextFromState = location.state?.from;
+  const nextPath = nextFromQuery || nextFromState || '/dashboard';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('user'); // optionnel, si tu veux garder le sélecteur
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (authReady && isAuthenticated) {
       navigate(nextPath, { replace: true });
     }
-  }, [authReady, isAuthenticated, navigate, nextPath]);
+  }, [authReady, isAuthenticated, nextPath, navigate]);
 
   const onSubmit = async (e) => {
     e.preventDefault();
     setError('');
     try {
-      await login(email, password, role); // le 3e arg est ignoré si ton login ne le gère pas, pas grave
-      // la redirection est gérée par l'useEffect
+      await login(email, password);
+      // la redirection se fait via l’effet ci-dessus
     } catch {
       setError('Identifiants invalides.');
     }
@@ -42,13 +40,6 @@ export default function Login() {
         <h2 className="text-2xl font-extrabold mb-6 text-white uppercase tracking-wide">
           Connexion
         </h2>
-
-        {/* Message si on vient d’une page protégée */}
-        {location.state?.from && (
-          <p className="text-white/80 text-sm mb-3">
-            Veuillez vous connecter pour accéder à la page demandée.
-          </p>
-        )}
 
         {error && <p className="text-red-200 text-sm mb-3">{error}</p>}
 
@@ -70,16 +61,6 @@ export default function Login() {
             className="w-full px-4 py-2 text-black rounded border focus:outline-none focus:ring-2 focus:ring-blue-400"
           />
 
-          {/* Optionnel : sélecteur de rôle (démo) */}
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            className="w-full px-4 py-2 text-black rounded border focus:outline-none focus:ring-2 focus:ring-blue-400"
-          >
-            <option value="user">Utilisateur</option>
-            <option value="admin">Admin (démo)</option>
-          </select>
-
           <button
             type="submit"
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded transition duration-300 shadow-md"
@@ -97,7 +78,13 @@ export default function Login() {
         <div className="mt-2 text-sm text-white/90">
           Pas de compte ?{' '}
           <Link
-            to={`/register?next=${encodeURIComponent(nextPath)}`}
+            to={{
+              pathname: '/register',
+              search: nextFromQuery
+                ? `?next=${encodeURIComponent(nextFromQuery)}`
+                : '',
+            }}
+            state={nextFromState ? { from: nextFromState } : undefined}
             className="underline"
           >
             S’inscrire

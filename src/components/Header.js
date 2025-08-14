@@ -1,124 +1,53 @@
 // src/components/Header.js
-import React, { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { FaBars } from 'react-icons/fa';
+import React from 'react';
+import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const Header = () => {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const { user, logout } = useAuth() ?? {};
-
-  const displayName = useMemo(() => {
-    const n = user?.nom || user?.full_name || user?.name;
-    if (n) return String(n).trim();
-    if (user?.email) return user.email.split('@')[0];
-    return '';
-  }, [user]);
-
-  const closeMenu = () => setMenuOpen(false);
+export default function Header() {
+  const { user, isAdmin, logout } = useAuth() ?? {};
+  const displayName =
+    user?.full_name ||
+    [user?.first_name, user?.last_name].filter(Boolean).join(' ') ||
+    user?.name ||
+    null;
 
   return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-        {/* Marque (logo facultatif) */}
-        <Link to="/" className="flex items-center gap-2" onClick={closeMenu}>
-          {<img src="/images/logo.png" alt="Logo" className="w-8 h-8" />}
-          <span className="font-bold text-lg text-gray-800">JO Paris 2024</span>
+    <header className="border-b bg-white">
+      <nav className="mx-auto max-w-6xl px-4 h-14 flex items-center gap-4">
+        <Link to="/" className="flex items-center gap-2">
+          <img src="/images/logo.png" alt="Logo" className="w-8 h-8" />
+          <span className="font-semibold">JO Paris 2024</span>
         </Link>
 
-        {/* Desktop : seulement Connexion / Inscription (ou Bonjour + Déconnexion si connecté) */}
-        <div className="hidden md:flex items-center gap-3">
-          {user ? (
+        {/* On enlève les liens inutiles : pas de Dashboard/Reservation dans la nav */}
+        {isAdmin && (
+          <NavLink
+            to="/admin"
+            className="ml-2 text-sm text-gray-700 hover:text-black"
+          >
+            Admin
+          </NavLink>
+        )}
+
+        <div className="ml-auto flex items-center gap-3">
+          {displayName ? (
             <>
-              {displayName && (
-                <div className="text-sm text-gray-700">
-                  Bonjour, <strong>{displayName}</strong>
-                </div>
-              )}
+              <span className="text-sm">Bonjour, {displayName}</span>
               <button
-                onClick={() => {
-                  closeMenu();
-                  logout?.();
-                }}
-                className="px-3 py-2 rounded bg-gray-100 text-gray-800 font-semibold"
+                onClick={logout}
+                className="px-3 py-1 rounded bg-gray-900 text-white"
               >
                 Se déconnecter
               </button>
             </>
           ) : (
             <>
-              <Link
-                to="/login"
-                className="px-3 py-2 rounded border border-gray-300 text-gray-800"
-                onClick={closeMenu}
-              >
-                Se connecter
-              </Link>
-              <Link
-                to="/register"
-                className="px-3 py-2 rounded bg-blue-600 text-white font-semibold"
-                onClick={closeMenu}
-              >
-                S’inscrire
-              </Link>
+              <Link to="/login">Se connecter</Link>
+              <Link to="/register">S’inscrire</Link>
             </>
           )}
         </div>
-
-        {/* Burger mobile */}
-        <button
-          className="md:hidden text-2xl text-gray-700"
-          onClick={() => setMenuOpen(!menuOpen)}
-          aria-label="Ouvrir le menu"
-        >
-          <FaBars />
-        </button>
-      </div>
-
-      {/* Menu mobile (pareil: uniquement Connexion / Inscription ou Déconnexion) */}
-      {menuOpen && (
-        <div className="md:hidden px-4 pb-4 space-y-2 bg-white shadow">
-          {user ? (
-            <>
-              <div className="text-sm text-gray-700 mb-1">
-                {displayName && (
-                  <>
-                    Bonjour, <strong>{displayName}</strong>
-                  </>
-                )}
-              </div>
-              <button
-                onClick={() => {
-                  closeMenu();
-                  logout?.();
-                }}
-                className="w-full px-3 py-2 rounded bg-gray-100 text-gray-800 text-center font-semibold"
-              >
-                Se déconnecter
-              </button>
-            </>
-          ) : (
-            <>
-              <Link
-                to="/login"
-                className="block hover:text-blue-700"
-                onClick={closeMenu}
-              >
-                Se connecter
-              </Link>
-              <Link
-                to="/register"
-                className="block hover:text-blue-700"
-                onClick={closeMenu}
-              >
-                S’inscrire
-              </Link>
-            </>
-          )}
-        </div>
-      )}
+      </nav>
     </header>
   );
-};
-
-export default Header;
+}

@@ -1,24 +1,23 @@
+// src/components/PrivateRoute.jsx
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-export default function PrivateRoute({ component: Component, roles }) {
-  const { isAuthenticated, user } = useAuth() ?? {};
+export default function PrivateRoute({ component: Component }) {
+  const { isAuthenticated, authReady } = useAuth() ?? {};
   const location = useLocation();
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace state={{ from: location }} />;
-  }
+  if (!authReady) return null; // ou un spinner
 
-  if (roles?.length) {
-    const role =
-      user?.role ||
-      (user?.is_admin || user?.is_staff || user?.is_superuser
-        ? 'admin'
-        : 'user');
-    if (!roles.includes(role)) {
-      return <Navigate to="/dashboard" replace />;
-    }
+  if (!isAuthenticated) {
+    const next = location.pathname + location.search;
+    return (
+      <Navigate
+        to={`/login?next=${encodeURIComponent(next)}`}
+        replace
+        state={{ from: next }}
+      />
+    );
   }
 
   return <Component />;
