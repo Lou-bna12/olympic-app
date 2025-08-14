@@ -1,19 +1,18 @@
+// src/components/LayoutAuth.jsx
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 const LayoutAuth = ({ children }) => {
   return (
-    <div className="min-h-screen flex flex-col md:flex-row">
-      {/* Colonne gauche avec image */}
-      <div
-        className="md:w-1/2 bg-cover bg-center hidden md:block"
-        style={{
-          backgroundImage: "url('/images/olympique.jpg')",
-        }}
-      ></div>
+    <div className="flex justify-center items-center min-h-screen bg-[#0a2540] px-4">
+      <div className="bg-white/10 backdrop-blur p-8 rounded-xl shadow-md w-full max-w-md border border-white/20">
+        {children}
 
-      {/* Colonne droite avec le formulaire et marge en bas */}
-      <div className="w-full md:w-1/2 bg-black text-white flex flex-col justify-between p-8">
-        <div className="w-full max-w-md mx-auto mt-10 mb-20">{children}</div>
+        <div className="mt-6 text-sm text-white/90 flex items-center justify-between">
+          <Link to="/" className="underline">
+            ← Retour à l’accueil
+          </Link>
+        </div>
       </div>
     </div>
   );

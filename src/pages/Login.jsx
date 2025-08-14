@@ -1,78 +1,62 @@
-import React, { useState, useContext } from 'react';
-import LayoutAuth from '../components/LayoutAuth';
-import { FaFacebookF, FaGoogle, FaApple } from 'react-icons/fa';
-import { useNavigate } from 'react-router-dom';
-import { UserContext } from '../context/UserContext';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
-const Login = () => {
+export default function Login() {
+  const { login, isAuthenticated, authReady } = useAuth() ?? {};
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const nextPath = useMemo(() => {
+    const stateNext =
+      location.state?.from?.pathname || location.state?.from || null;
+    const q = new URLSearchParams(location.search);
+    return stateNext || q.get('next') || '/dashboard';
+  }, [location]);
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState('user'); // optionnel, si tu veux garder le sélecteur
   const [error, setError] = useState('');
-  const { setUtilisateur } = useContext(UserContext);
-  const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  useEffect(() => {
+    if (authReady && isAuthenticated) {
+      navigate(nextPath, { replace: true });
+    }
+  }, [authReady, isAuthenticated, navigate, nextPath]);
+
+  const onSubmit = async (e) => {
     e.preventDefault();
     setError('');
-
-    // 1) Lire la liste des comptes inscrits
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-
-    // 2) Trouver un utilisateur qui match email + password
-    const found = users.find(
-      (u) => u.email === email.trim() && u.password === password
-    );
-
-    if (!found) {
-      setError('Email ou mot de passe incorrect');
-      return;
+    try {
+      await login(email, password, role); // le 3e arg est ignoré si ton login ne le gère pas, pas grave
+      // la redirection est gérée par l'useEffect
+    } catch {
+      setError('Identifiants invalides.');
     }
-
-    // 3) Ouvrir la session (sans stocker le mot de passe)
-    const sessionUser = {
-      email: found.email,
-      nom: found.nom,
-      role: found.role || 'user',
-    };
-    localStorage.setItem('utilisateur', JSON.stringify(sessionUser));
-    setUtilisateur(sessionUser);
-
-    navigate('/dashboard');
   };
 
   return (
-    <LayoutAuth>
-      <div className="pb-20">
+    <div className="flex justify-center items-center min-h-screen bg-[#0a2540] px-4">
+      <div className="bg-white/10 backdrop-blur p-8 rounded-xl shadow-md w-full max-w-md border border-white/20">
         <h2 className="text-2xl font-extrabold mb-6 text-white uppercase tracking-wide">
-          Avec les réseaux sociaux
+          Connexion
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 w-full">
-          <button className="flex items-center justify-center gap-2 border border-gray-300 bg-white hover:bg-gray-100 text-black py-2 px-4 rounded transition duration-300">
-            <FaFacebookF className="text-blue-600" />
-            Facebook
-          </button>
-          <button className="flex items-center justify-center gap-2 border border-gray-300 bg-white hover:bg-gray-100 text-black py-2 px-4 rounded transition duration-300">
-            <FaGoogle className="text-red-500" />
-            Google
-          </button>
-          <button className="flex items-center justify-center gap-2 border border-gray-300 bg-white hover:bg-gray-100 text-black py-2 px-4 rounded transition duration-300">
-            <FaApple className="text-gray-800" />
-            Apple
-          </button>
-        </div>
+        {/* Message si on vient d’une page protégée */}
+        {location.state?.from && (
+          <p className="text-white/80 text-sm mb-3">
+            Veuillez vous connecter pour accéder à la page demandée.
+          </p>
+        )}
 
-        <h3 className="text-white text-lg font-semibold mb-4">
-          OU CONTINUER AVEC UNE ADRESSE E-MAIL
-        </h3>
+        {error && <p className="text-red-200 text-sm mb-3">{error}</p>}
 
-        {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
-
-        <form onSubmit={handleLogin} className="space-y-4 w-full">
+        <form onSubmit={onSubmit} className="space-y-4 w-full">
           <input
             type="email"
             required
-            placeholder="E-mail*"
+            placeholder="E-mail"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full px-4 py-2 text-black rounded border focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -80,11 +64,22 @@ const Login = () => {
           <input
             type="password"
             required
-            placeholder="Mot de passe*"
+            placeholder="Mot de passe"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="w-full px-4 py-2 text-black rounded border focus:outline-none focus:ring-2 focus:ring-blue-400"
           />
+
+          {/* Optionnel : sélecteur de rôle (démo) */}
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            className="w-full px-4 py-2 text-black rounded border focus:outline-none focus:ring-2 focus:ring-blue-400"
+          >
+            <option value="user">Utilisateur</option>
+            <option value="admin">Admin (démo)</option>
+          </select>
+
           <button
             type="submit"
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded transition duration-300 shadow-md"
@@ -93,15 +88,22 @@ const Login = () => {
           </button>
         </form>
 
-        <p
-          className="mt-6 underline text-sm text-white hover:text-yellow-400 cursor-pointer transition duration-300"
-          onClick={() => navigate('/forgot-password')}
-        >
-          Mot de passe oublié ?
-        </p>
-      </div>
-    </LayoutAuth>
-  );
-};
+        <div className="mt-4 text-sm text-white/90">
+          <Link to="/forgot-password" className="underline">
+            Mot de passe oublié ?
+          </Link>
+        </div>
 
-export default Login;
+        <div className="mt-2 text-sm text-white/90">
+          Pas de compte ?{' '}
+          <Link
+            to={`/register?next=${encodeURIComponent(nextPath)}`}
+            className="underline"
+          >
+            S’inscrire
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}

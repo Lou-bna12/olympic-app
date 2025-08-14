@@ -1,3 +1,4 @@
+// src/App.js
 import React from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import Home from './pages/Home';
@@ -8,31 +9,34 @@ import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import Reservation from './pages/Reservation';
 import Confirmation from './pages/Confirmation';
-import AdminPage from './pages/Admin';
+import Admin from './pages/Admin';
 import Logout from './components/Logout';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import PrivateRoute from './components/PrivateRoute';
-import { UserProvider } from './context/UserContext';
+import AdminRoute from './components/AdminRoute';
 
 const App = () => {
   const location = useLocation();
-
   const hideFooterRoutes = [
     '/login',
     '/register',
     '/forgot-password',
     '/reset-password',
-    '/logout', // on masque aussi le footer sur la page de déconnexion
+    '/logout',
   ];
 
+  //  cacher le footer aussi sur tout /admin
+  const hideFooter =
+    hideFooterRoutes.includes(location.pathname) ||
+    location.pathname.startsWith('/admin');
+
   return (
-    <UserProvider>
+    <>
       <Header />
       <Routes>
         {/* Public */}
         <Route path="/" element={<Home />} />
-        <Route path="/reservation" element={<Reservation />} />
         <Route path="/confirmation" element={<Confirmation />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
@@ -45,14 +49,25 @@ const App = () => {
           element={<PrivateRoute component={Dashboard} />}
         />
         <Route
-          path="/admin"
-          element={<PrivateRoute component={AdminPage} roles={['admin']} />}
+          path="/reservation"
+          element={<PrivateRoute component={Reservation} />}
         />
+
+        {/* Admin protégé */}
+        <Route
+          path="/admin/*"
+          element={
+            <AdminRoute>
+              <Admin />
+            </AdminRoute>
+          }
+        />
+
         <Route path="/logout" element={<PrivateRoute component={Logout} />} />
       </Routes>
 
-      {!hideFooterRoutes.includes(location.pathname) && <Footer />}
-    </UserProvider>
+      {!hideFooter && <Footer />}
+    </>
   );
 };
 

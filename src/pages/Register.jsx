@@ -1,97 +1,87 @@
-import React, { useState } from 'react';
-import LayoutAuth from '../components/LayoutAuth';
-import { FaFacebookF, FaGoogle, FaApple } from 'react-icons/fa';
-import { useNavigate } from 'react-router-dom';
+// src/pages/Register.jsx
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
-const Register = () => {
-  const [email, setEmail] = useState('');
-  const [nom, setNom] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
+export default function Register() {
+  const { register, isAuthenticated, authReady } = useAuth() ?? {};
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const handleRegister = (e) => {
+  // Calcule la destination après inscription (priorité à state.from, sinon ?next=, sinon /dashboard)
+  const nextPath = useMemo(() => {
+    const stateNext =
+      location.state?.from?.pathname || location.state?.from || null;
+    const q = new URLSearchParams(location.search);
+    return stateNext || q.get('next') || '/dashboard';
+  }, [location]);
+
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [error, setError] = useState('');
+
+  // Si déjà connecté (et hydratation OK), envoie direct vers nextPath
+  useEffect(() => {
+    if (authReady && isAuthenticated) {
+      navigate(nextPath, { replace: true });
+    }
+  }, [authReady, isAuthenticated, navigate, nextPath]);
+
+  const onSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    const emailTrim = email.trim().toLowerCase();
-
-    // Validations
-    if (password !== confirmPassword) {
-      setError('Les mots de passe ne correspondent pas');
-      return;
-    }
     if (password.length < 6) {
-      setError('Le mot de passe doit contenir au moins 6 caractères');
+      setError('Le mot de passe doit contenir au moins 6 caractères.');
+      return;
+    }
+    if (password !== confirm) {
+      setError('Les mots de passe ne correspondent pas.');
       return;
     }
 
-    // 1) Lire la liste des comptes
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-
-    // 2) Empêcher l'email en double
-    if (users.some((u) => u.email.toLowerCase() === emailTrim)) {
-      setError('Cet e-mail est déjà utilisé');
-      return;
+    try {
+      // Ton AuthContext connecte déjà l’utilisateur après register (maquette locale)
+      await register(fullName.trim(), email.trim(), password);
+      // La redirection est gérée par l’effet ci-dessus
+    } catch (err) {
+      setError(
+        err?.message || 'Inscription impossible pour le moment. Réessaye.'
+      );
     }
-
-    // 3) Ajouter l'utilisateur (DEMO: mot de passe en clair)
-    const newUser = {
-      nom: nom.trim(),
-      email: emailTrim,
-      password,
-      role: 'user',
-    };
-    users.push(newUser);
-    localStorage.setItem('users', JSON.stringify(users));
-
-    // Ne pas ouvrir de session ici (on ne touche pas à 'utilisateur')
-    // Redirection vers la page de connexion
-    navigate('/login', { replace: true });
   };
 
   return (
-    <LayoutAuth>
-      <div className="pb-20">
+    <div className="flex justify-center items-center min-h-screen bg-[#0a2540] px-4">
+      <div className="bg-white/10 backdrop-blur p-8 rounded-xl shadow-md w-full max-w-md border border-white/20">
         <h2 className="text-2xl font-extrabold mb-6 text-white uppercase tracking-wide">
-          Créez votre compte olympique gratuit
+          Inscription
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 w-full">
-          <button className="flex items-center justify-center gap-2 border border-gray-300 bg-white hover:bg-gray-100 text-black py-2 px-4 rounded transition duration-300">
-            <FaFacebookF className="text-blue-600" />
-            Facebook
-          </button>
-          <button className="flex items-center justify-center gap-2 border border-gray-300 bg-white hover:bg-gray-100 text-black py-2 px-4 rounded transition duration-300">
-            <FaGoogle className="text-red-500" />
-            Google
-          </button>
-          <button className="flex items-center justify-center gap-2 border border-gray-300 bg-white hover:bg-gray-100 text-black py-2 px-4 rounded transition duration-300">
-            <FaApple className="text-gray-800" />
-            Apple
-          </button>
-        </div>
+        {/* Message si on vient d’une page protégée */}
+        {location.state?.from && (
+          <p className="text-white/80 text-sm mb-3">
+            Crée un compte pour accéder à la page demandée.
+          </p>
+        )}
 
-        <h3 className="text-white text-lg font-semibold mb-4">
-          OU CONTINUER AVEC VOTRE E-MAIL
-        </h3>
+        {error && <p className="text-red-200 text-sm mb-3">{error}</p>}
 
-        {error && <p className="text-red-500 text-sm">{error}</p>}
-
-        <form onSubmit={handleRegister} className="space-y-4 w-full">
+        <form onSubmit={onSubmit} className="space-y-4 w-full">
           <input
             type="text"
             required
-            placeholder="Nom complet*"
-            value={nom}
-            onChange={(e) => setNom(e.target.value)}
+            placeholder="Nom complet"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
             className="w-full px-4 py-2 text-black rounded border focus:outline-none focus:ring-2 focus:ring-blue-400"
           />
           <input
             type="email"
             required
-            placeholder="E-mail*"
+            placeholder="E-mail"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full px-4 py-2 text-black rounded border focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -99,7 +89,7 @@ const Register = () => {
           <input
             type="password"
             required
-            placeholder="Mot de passe*"
+            placeholder="Mot de passe"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="w-full px-4 py-2 text-black rounded border focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -107,28 +97,30 @@ const Register = () => {
           <input
             type="password"
             required
-            placeholder="Confirmer le mot de passe*"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="Confirmer le mot de passe"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
             className="w-full px-4 py-2 text-black rounded border focus:outline-none focus:ring-2 focus:ring-blue-400"
           />
+
           <button
             type="submit"
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded transition duration-300 shadow-md"
           >
-            S'inscrire
+            Créer mon compte
           </button>
         </form>
 
-        <p
-          className="mt-6 underline text-sm text-white hover:text-yellow-400 cursor-pointer transition duration-300"
-          onClick={() => navigate('/login')}
-        >
-          J’ai déjà un compte ?
-        </p>
+        <div className="mt-4 text-sm text-white/90">
+          Déjà un compte ?{' '}
+          <Link
+            to={`/login?next=${encodeURIComponent(nextPath)}`}
+            className="underline"
+          >
+            Se connecter
+          </Link>
+        </div>
       </div>
-    </LayoutAuth>
+    </div>
   );
-};
-
-export default Register;
+}

@@ -1,115 +1,117 @@
-// src/components/Header.jsx
-import React, { useState, useContext } from 'react';
+// src/components/Header.js
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FaBars } from 'react-icons/fa';
-import { UserContext } from '../context/UserContext';
+import { useAuth } from '../context/AuthContext';
 
 const Header = () => {
   const [menuOpen, setMenuOpen] = useState(false);
-  const { utilisateur } = useContext(UserContext);
+  const { user, logout } = useAuth() ?? {};
+
+  const displayName = useMemo(() => {
+    const n = user?.nom || user?.full_name || user?.name;
+    if (n) return String(n).trim();
+    if (user?.email) return user.email.split('@')[0];
+    return '';
+  }, [user]);
 
   const closeMenu = () => setMenuOpen(false);
 
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-        {/* Logo */}
+        {/* Marque (logo facultatif) */}
         <Link to="/" className="flex items-center gap-2" onClick={closeMenu}>
-          <img src="/images/logo.png" alt="Logo JO" className="h-10 w-auto" />
-          <span className="text-xl font-bold text-black">JO</span>
+          {<img src="/images/logo.png" alt="Logo" className="w-8 h-8" />}
+          <span className="font-bold text-lg text-gray-800">JO Paris 2024</span>
         </Link>
 
-        {/* Bouton menu mobile */}
-        <button
-          className="md:hidden text-2xl text-gray-700"
-          aria-label="Ouvrir le menu"
-          aria-expanded={menuOpen}
-          onClick={() => setMenuOpen(!menuOpen)}
-        >
-          <FaBars />
-        </button>
-
-        {/* Menu desktop */}
-        <nav className="hidden md:flex gap-6 text-sm text-gray-800">
-          <Link to="/" className="hover:text-blue-700">
-            Accueil
-          </Link>
-          <Link to="/reservation" className="hover:text-blue-700">
-            Réservation
-          </Link>
-
-          {!utilisateur ? (
+        {/* Desktop : seulement Connexion / Inscription (ou Bonjour + Déconnexion si connecté) */}
+        <div className="hidden md:flex items-center gap-3">
+          {user ? (
             <>
-              <Link to="/login" className="hover:text-blue-700">
-                Connexion
-              </Link>
-              <Link to="/register" className="hover:text-blue-700">
-                Inscription
-              </Link>
+              {displayName && (
+                <div className="text-sm text-gray-700">
+                  Bonjour, <strong>{displayName}</strong>
+                </div>
+              )}
+              <button
+                onClick={() => {
+                  closeMenu();
+                  logout?.();
+                }}
+                className="px-3 py-2 rounded bg-gray-100 text-gray-800 font-semibold"
+              >
+                Se déconnecter
+              </button>
             </>
           ) : (
             <>
-              <Link to="/dashboard" className="hover:text-blue-700">
-                Espace personnel
+              <Link
+                to="/login"
+                className="px-3 py-2 rounded border border-gray-300 text-gray-800"
+                onClick={closeMenu}
+              >
+                Se connecter
               </Link>
-              <Link to="/logout" className="hover:text-blue-700">
-                Déconnexion
+              <Link
+                to="/register"
+                className="px-3 py-2 rounded bg-blue-600 text-white font-semibold"
+                onClick={closeMenu}
+              >
+                S’inscrire
               </Link>
             </>
           )}
-        </nav>
+        </div>
+
+        {/* Burger mobile */}
+        <button
+          className="md:hidden text-2xl text-gray-700"
+          onClick={() => setMenuOpen(!menuOpen)}
+          aria-label="Ouvrir le menu"
+        >
+          <FaBars />
+        </button>
       </div>
 
-      {/* Menu mobile */}
+      {/* Menu mobile (pareil: uniquement Connexion / Inscription ou Déconnexion) */}
       {menuOpen && (
         <div className="md:hidden px-4 pb-4 space-y-2 bg-white shadow">
-          <Link
-            to="/"
-            className="block hover:text-blue-700"
-            onClick={closeMenu}
-          >
-            Accueil
-          </Link>
-          <Link
-            to="/reservation"
-            className="block hover:text-blue-700"
-            onClick={closeMenu}
-          >
-            Réservation
-          </Link>
-
-          {!utilisateur ? (
+          {user ? (
+            <>
+              <div className="text-sm text-gray-700 mb-1">
+                {displayName && (
+                  <>
+                    Bonjour, <strong>{displayName}</strong>
+                  </>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  closeMenu();
+                  logout?.();
+                }}
+                className="w-full px-3 py-2 rounded bg-gray-100 text-gray-800 text-center font-semibold"
+              >
+                Se déconnecter
+              </button>
+            </>
+          ) : (
             <>
               <Link
                 to="/login"
                 className="block hover:text-blue-700"
                 onClick={closeMenu}
               >
-                Connexion
+                Se connecter
               </Link>
               <Link
                 to="/register"
                 className="block hover:text-blue-700"
                 onClick={closeMenu}
               >
-                Inscription
-              </Link>
-            </>
-          ) : (
-            <>
-              <Link
-                to="/dashboard"
-                className="block hover:text-blue-700"
-                onClick={closeMenu}
-              >
-                Espace personnel
-              </Link>
-              <Link
-                to="/logout"
-                className="block hover:text-blue-700"
-                onClick={closeMenu}
-              >
-                Déconnexion
+                S’inscrire
               </Link>
             </>
           )}

@@ -1,26 +1,25 @@
-import React, { useContext } from 'react';
+import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { UserContext } from '../context/UserContext';
+import { useAuth } from '../context/AuthContext';
 
-const PrivateRoute = ({ component: Component, roles }) => {
-  const { utilisateur } = useContext(UserContext);
+export default function PrivateRoute({ component: Component, roles }) {
+  const { isAuthenticated, user } = useAuth() ?? {};
   const location = useLocation();
 
-  // Non connecté → login
-  if (!utilisateur) {
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  // Contrôle de rôles (admin, etc.)
   if (roles?.length) {
-    const role = utilisateur.role || 'user';
+    const role =
+      user?.role ||
+      (user?.is_admin || user?.is_staff || user?.is_superuser
+        ? 'admin'
+        : 'user');
     if (!roles.includes(role)) {
       return <Navigate to="/dashboard" replace />;
     }
   }
 
-  // OK → rendre la page demandée
   return <Component />;
-};
-
-export default PrivateRoute;
+}
