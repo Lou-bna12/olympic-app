@@ -1,23 +1,30 @@
-// src/pages/Dashboard.jsx
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Reservations from '../services/reservations';
 
 function StatusBadge({ status = 'pending' }) {
+  const normalized = String(status).toLowerCase();
+
   const styles =
     {
       pending: 'bg-yellow-100 text-yellow-800',
       approved: 'bg-green-100 text-green-800',
       refused: 'bg-red-100 text-red-800',
-    }[status] || 'bg-gray-100 text-gray-800';
+      rejected: 'bg-red-100 text-red-800', // alias possible
+      canceled: 'bg-gray-200 text-gray-700',
+      cancelled: 'bg-gray-200 text-gray-700',
+    }[normalized] || 'bg-gray-100 text-gray-800';
 
   const label =
     {
       pending: 'En attente',
       approved: 'Approuvée',
       refused: 'Refusée',
-    }[status] || status;
+      rejected: 'Refusée',
+      canceled: 'Annulée',
+      cancelled: 'Annulée',
+    }[normalized] || status;
 
   return (
     <span className={`px-2 py-1 rounded text-xs font-medium ${styles}`}>
@@ -25,6 +32,9 @@ function StatusBadge({ status = 'pending' }) {
     </span>
   );
 }
+
+// petit helper pour être tolérant côté API / localStorage
+const getGuests = (r) => r?.guests ?? r?.persons ?? r?.quantity ?? '—';
 
 export default function Dashboard() {
   const { user, token } = useAuth() ?? {};
@@ -98,7 +108,14 @@ export default function Dashboard() {
       {!loading && rows.length === 0 && (
         <div className="text-gray-600">
           Aucune réservation pour l’instant.
-          <div className="mt-3"></div>
+          <div className="mt-3">
+            <Link
+              to="/reservation"
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 text-white px-3 py-2 hover:bg-blue-700"
+            >
+              Réserver un billet
+            </Link>
+          </div>
         </div>
       )}
 
@@ -117,10 +134,10 @@ export default function Dashboard() {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} className="border-t">
-                  <td className="p-3">{r.date}</td>
-                  <td className="p-3">{r.time}</td>
-                  <td className="p-3">{r.guests}</td>
+                <tr key={r.id ?? `${r.date}-${r.email}`} className="border-t">
+                  <td className="p-3">{r.date || '—'}</td>
+                  <td className="p-3">{r.time || '—'}</td>
+                  <td className="p-3">{getGuests(r)}</td>
                   <td className="p-3">{r.note || '—'}</td>
                   <td className="p-3">
                     <StatusBadge status={r.status} />
