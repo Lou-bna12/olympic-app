@@ -1,5 +1,5 @@
 // src/App.js
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 
 import Home from './pages/Home';
@@ -50,6 +50,15 @@ function RequireAdmin({ children }) {
 
 const App = () => {
   const location = useLocation();
+  const [backendStatus, setBackendStatus] = useState('Vérification...');
+
+  // Test de connexion au backend
+  useEffect(() => {
+    fetch('http://127.0.0.1:8000/ping')
+      .then((res) => res.json())
+      .then((data) => setBackendStatus(data.status))
+      .catch(() => setBackendStatus('Erreur connexion API'));
+  }, []);
 
   const hideFooterRoutes = [
     '/login',
@@ -62,6 +71,13 @@ const App = () => {
   return (
     <>
       <Header />
+
+      {/* Affichage du statut backend */}
+      <div
+        style={{ textAlign: 'center', padding: '10px', background: '#f1f1f1' }}
+      >
+        <strong>Backend :</strong> {backendStatus}
+      </div>
 
       <Routes>
         {/* Public */}
@@ -99,7 +115,7 @@ const App = () => {
           }
         />
 
-        {/* 404 simple (optionnel) */}
+        {/* 404 simple */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 

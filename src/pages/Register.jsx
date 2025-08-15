@@ -1,104 +1,82 @@
-// src/pages/Register.jsx
-import React, { useEffect, useState } from 'react';
-import { useLocation, useNavigate, Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-export default function Register() {
-  const { register, isAuthenticated, authReady } = useAuth() ?? {};
+const Register = () => {
+  const { registerUser } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
-  // calcule du next à partir de ?next= ou state.from
-  const searchParams = new URLSearchParams(location.search);
-  const nextFromQuery = searchParams.get('next');
-  const nextFromState = location.state?.from;
-  const nextPath = nextFromQuery || nextFromState || '/dashboard';
-
-  const [fullName, setFullName] = useState('');
+  const [nom, setNom] = useState('');
+  const [prenom, setPrenom] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-
-  // si déjà connecté => on va direct vers nextPath
-  useEffect(() => {
-    if (authReady && isAuthenticated) {
-      navigate(nextPath, { replace: true });
-    }
-  }, [authReady, isAuthenticated, nextPath, navigate]);
 
   const onSubmit = async (e) => {
     e.preventDefault();
     setError('');
     try {
-      await register(fullName.trim(), email.trim(), password);
-      // l’effet ci-dessus se charge de la redirection
+      await registerUser(nom, prenom, email, password);
+      navigate('/dashboard');
     } catch (err) {
-      setError(
-        err?.message ||
-          "L'inscription a échoué. Vérifie les informations et réessaie."
-      );
+      setError('Erreur lors de la création du compte');
     }
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-[#0a2540] px-4">
-      <div className="bg-white/10 backdrop-blur p-8 rounded-xl shadow-md w-full max-w-md border border-white/20">
-        <h2 className="text-2xl font-extrabold mb-6 text-white uppercase tracking-wide">
-          Inscription
-        </h2>
-
-        {error && <p className="text-red-200 text-sm mb-3">{error}</p>}
-
-        <form onSubmit={onSubmit} className="space-y-4 w-full">
+    <div className="min-h-screen flex items-center justify-center bg-gray-900">
+      <div className="bg-gray-800 p-8 rounded-lg shadow-lg w-96">
+        <h2 className="text-2xl font-bold text-white mb-6">INSCRIPTION</h2>
+        {error && <p className="text-red-400 mb-4">{error}</p>}
+        <form onSubmit={onSubmit} className="space-y-4">
           <input
             type="text"
+            placeholder="Nom"
+            className="w-full p-3 rounded bg-white text-black"
+            value={nom}
+            onChange={(e) => setNom(e.target.value)}
             required
-            placeholder="Nom complet"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            className="w-full px-4 py-2 text-black rounded border focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+          <input
+            type="text"
+            placeholder="Prénom"
+            className="w-full p-3 rounded bg-white text-black"
+            value={prenom}
+            onChange={(e) => setPrenom(e.target.value)}
+            required
           />
           <input
             type="email"
-            required
-            placeholder="E-mail"
+            placeholder="Email"
+            className="w-full p-3 rounded bg-white text-black"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-2 text-black rounded border focus:outline-none focus:ring-2 focus:ring-blue-400"
+            required
           />
           <input
             type="password"
-            required
             placeholder="Mot de passe"
+            className="w-full p-3 rounded bg-white text-black"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-2 text-black rounded border focus:outline-none focus:ring-2 focus:ring-blue-400"
+            required
           />
-
           <button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded transition duration-300 shadow-md"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded"
           >
             Créer mon compte
           </button>
         </form>
-
-        <div className="mt-4 text-sm text-white/90">
+        <p className="mt-4 text-gray-300">
           Déjà un compte ?{' '}
-          <Link
-            to={{
-              pathname: '/login',
-              search: nextFromQuery
-                ? `?next=${encodeURIComponent(nextFromQuery)}`
-                : '',
-            }}
-            state={nextFromState ? { from: nextFromState } : undefined}
-            className="underline"
-          >
+          <Link to="/login" className="text-blue-400 hover:underline">
             Se connecter
           </Link>
-        </div>
+        </p>
       </div>
     </div>
   );
-}
+};
+
+export default Register;

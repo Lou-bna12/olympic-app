@@ -1,142 +1,82 @@
-// src/context/AuthContext.jsx
 import React, {
   createContext,
-  useContext,
-  useEffect,
-  useMemo,
   useState,
+  useEffect,
   useCallback,
+  useContext,
 } from 'react';
+import { login, register } from '../services/api';
 
-const SESSION_KEY = 'session';
-const TOKEN_KEY = 'auth_token';
+export const AuthContext = createContext();
+export const useAuth = () => useContext(AuthContext);
 
-const AuthContext = createContext(null);
-
-export function AuthProvider({ children }) {
-  const [authReady, setAuthReady] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [token, setToken] = useState(null);
+export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(localStorage.getItem('token') || null);
+  const [authReady, setAuthReady] = useState(false);
 
-  // Config (backend prêt plus tard)
-  //const API = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
-  const USE_MOCK =
-    String(process.env.REACT_APP_USE_MOCK_AUTH ?? 'true').toLowerCase() ===
-    'true';
-
-  // Hydratation depuis le localStorage
-  useEffect(() => {
+  // Récupération du profil utilisateur
+  const fetchUserProfile = useCallback(async () => {
+    if (!token) {
+      setAuthReady(true);
+      return;
+    }
     try {
-      const raw = localStorage.getItem(SESSION_KEY);
-      if (raw) {
-        const session = JSON.parse(raw);
-        setUser(session.user || null);
-        setToken(session.token || null);
-        setIsAuthenticated(Boolean(session.token || session.user));
+      const res = await fetch('http://127.0.0.1:8000/auth/me', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data);
       }
-    } catch {
-      /* ignore */
+    } catch (error) {
+      console.error('Erreur lors de la récupération du profil :', error);
     } finally {
       setAuthReady(true);
     }
-  }, []);
+  }, [token]);
 
-  const persist = useCallback((newUser, newToken) => {
-    const session = { user: newUser, token: newToken || null };
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    if (newToken) localStorage.setItem(TOKEN_KEY, newToken);
-    else localStorage.removeItem(TOKEN_KEY);
-  }, []);
+  useEffect(() => {
+    fetchUserProfile();
+  }, [fetchUserProfile]);
 
-  const login = useCallback(
-    async (email, password) => {
-      if (USE_MOCK) {
-        const fullName =
-          localStorage.getItem('register_full_name') ||
-          (email ? email.split('@')[0] : 'Utilisateur');
-        const newUser = {
-          email,
-          full_name: fullName,
-          nom: fullName,
-          role: 'user',
-        };
-        const newToken = 'local-dev-token';
-        setUser(newUser);
-        setToken(newToken);
-        setIsAuthenticated(true);
-        persist(newUser, newToken);
-        return { user: newUser, token: newToken };
-      }
+  // Connexion
+  const loginUser = async (email, password) => {
+    const data = await login(email, password);
+    setToken(data.access_token);
+    localStorage.setItem('token', data.access_token);
+    await fetchUserProfile();
+  };
 
-      throw new Error(
-        'Mode backend non activé (REACT_APP_USE_MOCK_AUTH=true).'
-      );
-    },
-    [persist, USE_MOCK /*, API*/]
-  );
+  // Inscription
+  const registerUser = async (nom, prenom, email, password) => {
+    const data = await register(nom, prenom, email, password);
+    setToken(data.access_token);
+    localStorage.setItem('token', data.access_token);
+    await fetchUserProfile();
+  };
 
-  const register = useCallback(
-    async (fullName, email, password) => {
-      if (USE_MOCK) {
-        const newUser = {
-          email,
-          full_name: fullName,
-          nom: fullName,
-          role: 'user',
-        };
-        const newToken = 'local-dev-token';
-        localStorage.setItem('register_full_name', fullName);
-        setUser(newUser);
-        setToken(newToken);
-        setIsAuthenticated(true);
-        persist(newUser, newToken);
-        return { user: newUser, token: newToken };
-      }
-
-      throw new Error(
-        'Mode backend non activé (REACT_APP_USE_MOCK_AUTH=true).'
-      );
-    },
-    [persist, USE_MOCK /*, API*/]
-  );
-
-  const logout = useCallback(() => {
-    localStorage.removeItem(SESSION_KEY);
-    localStorage.removeItem(TOKEN_KEY);
+  // Déconnexion
+  const logoutUser = () => {
     setUser(null);
     setToken(null);
-    setIsAuthenticated(false);
-  }, []);
+    localStorage.removeItem('token');
+  };
 
-  // Rôle admin (compatible avec plusieurs conventions backend)
-  const isAdmin = useMemo(() => {
-    const u = user || {};
-    return !!(
-      u.is_admin ||
-      u.is_staff ||
-      u.is_superuser ||
-      u.role === 'admin' ||
-      (Array.isArray(u.roles) && u.roles.includes('admin')) ||
-      (Array.isArray(u.groups) && u.groups.includes('admin'))
-    );
-  }, [user]);
-
-  const value = useMemo(
-    () => ({
-      authReady,
-      isAuthenticated,
-      isAdmin,
-      user,
-      token,
-      login,
-      register,
-      logout,
-    }),
-    [authReady, isAuthenticated, isAdmin, user, token, login, register, logout]
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        authReady,
+        isAuthenticated: !!user,
+        isAdmin: user?.role === 'admin',
+        loginUser,
+        registerUser,
+        logoutUser,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
   );
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-export const useAuth = () => useContext(AuthContext);
+};

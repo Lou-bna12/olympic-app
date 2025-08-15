@@ -32,11 +32,14 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "1440"))
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
+
 def get_password_hash(password):
     return pwd_context.hash(password)
 
+
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
+
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()
@@ -56,6 +59,7 @@ class User(Base):
     mot_de_passe_hache = Column(String, nullable=False)
     role = Column(String, default="user")  # user ou admin
 
+
 class Reservation(Base):
     __tablename__ = "reservations"
     id = Column(Integer, primary_key=True, index=True)
@@ -63,6 +67,7 @@ class Reservation(Base):
     quantite = Column(Integer, nullable=False)
     prix_total = Column(Float, nullable=False)
     email = Column(String, index=True, nullable=False)
+
 
 # Création des tables
 Base.metadata.create_all(bind=engine)
@@ -99,6 +104,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Utilisateur introuvable")
         return user
 
+
 def get_current_admin(current_user: User = Depends(get_current_user)):
     if current_user.role != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accès interdit")
@@ -113,6 +119,7 @@ class ReservationCreate(BaseModel):
     prix_total: float
     email: str
 
+
 class ReservationOut(BaseModel):
     id: int
     offre: str
@@ -121,10 +128,12 @@ class ReservationOut(BaseModel):
     email: str
     model_config = ConfigDict(from_attributes=True)
 
+
 class ReservationUpdate(BaseModel):
     offre: Optional[str] = None
     quantite: Optional[int] = None
     prix_total: Optional[float] = None
+
 
 class UserCreate(BaseModel):
     nom: str
@@ -132,13 +141,16 @@ class UserCreate(BaseModel):
     email: EmailStr
     mot_de_passe: str
 
+
 class UserLogin(BaseModel):
     email: EmailStr
     mot_de_passe: str
 
+
 class Token(BaseModel):
     access_token: str
     token_type: str
+
 
 # prix unitaires
 PRICES = {"solo": 25, "duo": 50, "familiale": 150}
@@ -156,7 +168,7 @@ def signup(user: UserCreate):
     with SessionLocal() as db:
         if db.query(User).filter(User.email == user.email).first():
             raise HTTPException(status_code=400, detail="Email déjà enregistré")
-        
+
         hashed_pw = get_password_hash(user.mot_de_passe)
         db_user = User(
             nom=user.nom,
@@ -171,13 +183,14 @@ def signup(user: UserCreate):
         token = create_access_token({"sub": db_user.email})
         return {"access_token": token, "token_type": "bearer"}
 
+
 @app.post("/login", response_model=Token)
 def login(user: UserLogin):
     with SessionLocal() as db:
         db_user = db.query(User).filter(User.email == user.email).first()
         if not db_user or not verify_password(user.mot_de_passe, db_user.mot_de_passe_hache):
             raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
-        
+
         token = create_access_token({"sub": db_user.email})
         return {"access_token": token, "token_type": "bearer"}
 
@@ -191,6 +204,7 @@ def create_reservation(payload: ReservationCreate, current_user: User = Depends(
         db.refresh(r)
         return r
 
+
 @app.get("/reservations/{reservation_id}", response_model=ReservationOut)
 def read_reservation(reservation_id: int, current_user: User = Depends(get_current_user)):
     with SessionLocal() as db:
@@ -198,6 +212,7 @@ def read_reservation(reservation_id: int, current_user: User = Depends(get_curre
         if not r:
             raise HTTPException(status_code=404, detail="Reservation not found")
         return r
+
 
 @app.get("/reservations/", response_model=List[ReservationOut])
 def list_reservations(email: Optional[str] = None, offre: Optional[str] = None, current_user: User = Depends(get_current_user)):
@@ -209,10 +224,12 @@ def list_reservations(email: Optional[str] = None, offre: Optional[str] = None, 
             q = q.filter(Reservation.offre == offre)
         return q.order_by(Reservation.id.desc()).all()
 
+
 @app.get("/reservations/all", response_model=List[ReservationOut])
 def list_all_reservations(current_admin: User = Depends(get_current_admin)):
     with SessionLocal() as db:
         return db.query(Reservation).order_by(Reservation.id.desc()).all()
+
 
 @app.patch("/reservations/{res_id}", response_model=ReservationOut)
 def update_reservation(res_id: int, payload: ReservationUpdate, current_user: User = Depends(get_current_user)):
@@ -238,6 +255,28 @@ def update_reservation(res_id: int, payload: ReservationUpdate, current_user: Us
         db.refresh(r)
         return r
 
+
+@app.put("/reservations/{res_id}", response_model=ReservationOut)
+def replace_reservation(res_id: int, payload: ReservationCreate, current_user: User = Depends(get_current_user)):
+    with SessionLocal() as db:
+        r = db.query(Reservation).filter(Reservation.id == res_id).first()
+        if not r:
+            raise HTTPException(status_code=404, detail="Reservation not found")
+
+        if payload.offre not in PRICES:
+            raise HTTPException(status_code=400, detail="Offre invalide")
+
+        # Remplacer complètement tous les champs
+        r.offre = payload.offre
+        r.quantite = payload.quantite
+        r.prix_total = payload.prix_total
+        r.email = payload.email
+
+        db.commit()
+        db.refresh(r)
+        return r
+
+
 @app.delete("/reservations/{reservation_id}", status_code=204)
 def delete_reservation(reservation_id: int, current_user: User = Depends(get_current_user)):
     with SessionLocal() as db:
@@ -247,3 +286,30 @@ def delete_reservation(reservation_id: int, current_user: User = Depends(get_cur
         db.delete(r)
         db.commit()
         return None
+
+# ----------------------------
+# NOUVELLE ROUTE : profil utilisateur connecté
+# ----------------------------
+@app.get("/auth/me")
+def get_me(current_user: User = Depends(get_current_user)):
+    return {
+        "id": current_user.id,
+        "nom": current_user.nom,
+        "prenom": current_user.prenom,
+        "email": current_user.email,
+        "role": current_user.role
+    }
+
+# ----------------------------
+# NOUVELLE ROUTE : réservations personnelles
+# ----------------------------
+@app.get("/reservations/mine", response_model=List[ReservationOut])
+def list_my_reservations(current_user: User = Depends(get_current_user)):
+    with SessionLocal() as db:
+        return (
+            db.query(Reservation)
+            .filter(Reservation.email == current_user.email)
+            .order_by(Reservation.id.desc())
+            .all()
+        )
+
