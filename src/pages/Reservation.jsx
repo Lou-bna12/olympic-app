@@ -1,179 +1,251 @@
 // src/pages/Reservation.jsx
-import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import React, { useMemo, useState } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import Reservations from '../services/reservations';
 
+// Offres billetterie JO
 const OFFERS = {
-  solo: { label: 'Solo — 1 place', persons: 1 },
-  duo: { label: 'Duo — 2 places', persons: 2 },
-  famille: { label: 'Famille — 4 places', persons: 4 },
+  solo: { label: 'Offre Solo', price: 25, persons: 1 },
+  duo: { label: 'Offre Duo', price: 50, persons: 2 },
+  familiale: { label: 'Offre Familiale', price: 150, persons: 4 },
 };
 
+function Price({ offerKey, qty }) {
+  const total = useMemo(() => {
+    const offer = OFFERS[offerKey];
+    return offer ? offer.price * Math.max(1, qty || 1) : 0;
+  }, [offerKey, qty]);
+
+  return (
+    <div className="text-right">
+      <div className="text-sm text-gray-500">Total</div>
+      <div className="text-2xl font-bold">{total} €</div>
+    </div>
+  );
+}
+
 export default function Reservation() {
+  const { isAuthenticated, user, token } = useAuth() ?? {};
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const { user } = useAuth() ?? {};
+  const location = useLocation();
 
-  // Champs
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
+  // Champs du formulaire
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [offer, setOffer] = useState('solo'); // solo | duo | famille
-  const persons = useMemo(() => OFFERS[offer].persons, [offer]);
-  const [note, setNote] = useState(''); // remarque optionnelle
+  const [time, setTime] = useState('10:00');
+  const [offer, setOffer] = useState('solo');
+  const [qty, setQty] = useState(1);
+  const [note, setNote] = useState('');
 
-  // Pré-remplissage utilisateur
-  useEffect(() => {
-    if (user?.full_name || user?.nom || user?.name) {
-      setFullName(user.full_name || user.nom || user.name);
-    }
-    if (user?.email) setEmail(user.email);
-  }, [user]);
+  // UI state
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState('');
+  const [ok, setOk] = useState('');
 
-  // Lecture ?offer=solo|duo|famille
-  useEffect(() => {
-    const o = (searchParams.get('offer') || '').toLowerCase();
-    if (o && OFFERS[o]) setOffer(o);
-  }, [searchParams]);
+  // Si non connecté → écran d’accès
+  if (!isAuthenticated) {
+    // On mémorise la page pour y revenir après login
+    const next = encodeURIComponent(location.pathname + location.search);
+    return (
+      <div className="min-h-[60vh] grid place-items-center px-4">
+        <div className="max-w-md w-full border rounded-2xl p-6 bg-white shadow-sm">
+          <h1 className="text-xl font-bold mb-2">Réservation</h1>
+          <p className="text-gray-600">
+            Vous devez être connecté(e) pour réserver vos billets.
+          </p>
+          <div className="mt-4 flex gap-3">
+            <Link
+              to={`/login?next=${next}`}
+              className="inline-flex items-center justify-center rounded-lg px-4 py-2 bg-blue-600 text-white font-semibold hover:bg-blue-700"
+            >
+              Se connecter
+            </Link>
+            <Link
+              to={`/register?next=${next}`}
+              className="inline-flex items-center justify-center rounded-lg px-4 py-2 border font-semibold"
+            >
+              S’inscrire
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const onSubmit = (e) => {
+  // Calcul d’infos dérivées
+  const offerInfo = OFFERS[offer];
+  const guests = (offerInfo?.persons || 1) * Math.max(1, qty || 1);
+
+  const onSubmit = async (e) => {
     e.preventDefault();
+    if (!offerInfo) return;
 
-    const payload = {
-      fullName: fullName.trim(),
-      email: email.trim(),
-      date,
-      offer,
-      persons, // dérivé de l’offre
-      note: note.trim() || null,
-      createdAt: new Date().toISOString(),
-      status: 'pending',
-    };
+    setSubmitting(true);
+    setErr('');
+    setOk('');
 
-    // Stockage local (en attendant le backend)
     try {
-      const raw = localStorage.getItem('my_reservations') || '[]';
-      const list = JSON.parse(raw);
-      const nextId =
-        (list.length ? Math.max(...list.map((r) => r.id || 0)) : 1000) + 1;
-      const saved = [{ id: nextId, ...payload }, ...list];
-      localStorage.setItem('my_reservations', JSON.stringify(saved));
-    } catch {
-      /* ignore */
-    }
+      // payload attendu par ton service
+      const payload = {
+        date,
+        time,
+        guests,
+        offer,
+        qty,
+        note: note.trim() || null,
+        email: user?.email || '',
+      };
 
-    // Redirection confirmation (frontend-only)
-    navigate('/confirmation', {
-      replace: true,
-      state: { reservation: payload },
-    });
+      await Reservations.create(payload, token);
+      setOk('Réservation créée avec succès.');
+      // on peut rediriger : dashboard ou confirmation
+      setTimeout(() => navigate('/dashboard', { replace: true }), 600);
+    } catch (e2) {
+      setErr(
+        e2?.message ||
+          'Impossible de créer la réservation. Réessayez plus tard.'
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-3xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold">Réserver des billets</h1>
-        <p className="text-gray-600 mt-1">
-          Choisis ton offre (Solo, Duo, Famille) et une date. Aucune zone
-          “Allergies” — c’est de la billetterie JO.
-        </p>
+    <div className="max-w-3xl mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold mb-2">Réserver des billets</h1>
+      <p className="text-gray-600 mb-6">
+        Choisissez la date, l’horaire et l’offre qui vous convient.
+      </p>
 
-        <form
-          onSubmit={onSubmit}
-          className="mt-6 rounded-2xl border bg-white p-6 shadow-sm space-y-5"
-        >
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="block text-sm text-gray-700">Nom complet</label>
-              <input
-                type="text"
-                required
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                className="w-full rounded-lg border px-3 py-2"
-                placeholder="Ex : Alex Dupont"
-              />
-            </div>
+      {/* messages */}
+      {err && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-red-700">
+          {err}
+        </div>
+      )}
+      {ok && (
+        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-emerald-800">
+          {ok}
+        </div>
+      )}
 
-            <div className="space-y-1">
-              <label className="block text-sm text-gray-700">E-mail</label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border px-3 py-2"
-                placeholder="exemple@mail.com"
-              />
+      <form
+        onSubmit={onSubmit}
+        className="rounded-2xl border bg-white p-5 shadow-sm space-y-5"
+      >
+        {/* Date + Heure */}
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Date</label>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              min={new Date().toISOString().slice(0, 10)}
+              required
+              className="w-full rounded-lg border px-3 py-2"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Heure</label>
+            <select
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              className="w-full rounded-lg border px-3 py-2"
+            >
+              {[
+                '10:00',
+                '11:00',
+                '12:00',
+                '13:00',
+                '14:00',
+                '15:00',
+                '16:00',
+                '17:00',
+                '18:00',
+                '19:00',
+              ].map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Offres JO (solo/duo/familiale) + quantité */}
+        <div className="grid sm:grid-cols-[1fr_auto] gap-4 items-end">
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Offre</label>
+            <select
+              value={offer}
+              onChange={(e) => setOffer(e.target.value)}
+              className="w-full rounded-lg border px-3 py-2"
+            >
+              {Object.entries(OFFERS).map(([key, o]) => (
+                <option key={key} value={key}>
+                  {o.label} — {o.price} €
+                </option>
+              ))}
+            </select>
+            <div className="mt-1 text-xs text-gray-500">
+              {offerInfo?.persons} personne{offerInfo?.persons > 1 ? 's' : ''}{' '}
+              par offre
             </div>
           </div>
 
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="block text-sm text-gray-700">Date</label>
-              <input
-                type="date"
-                required
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full rounded-lg border px-3 py-2"
-                min={new Date().toISOString().slice(0, 10)}
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="block text-sm text-gray-700">Offre</label>
-              <select
-                value={offer}
-                onChange={(e) => setOffer(e.target.value)}
-                className="w-full rounded-lg border px-3 py-2 bg-white"
-              >
-                {Object.entries(OFFERS).map(([key, o]) => (
-                  <option key={key} value={key}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* nombre de places, dérivé de l’offre */}
-          <div className="space-y-1">
-            <label className="block text-sm text-gray-700">Places</label>
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Quantité</label>
             <input
               type="number"
-              value={persons}
-              readOnly
-              className="w-full sm:max-w-xs rounded-lg border px-3 py-2 bg-gray-50"
-            />
-            <div className="text-xs text-gray-500">
-              Solo = 1 • Duo = 2 • Famille = 4
-            </div>
-          </div>
-
-          {/* Remarque optionnelle (on a supprimé “Allergies”) */}
-          <div className="space-y-1">
-            <label className="block text-sm text-gray-700">
-              Remarque (optionnel)
-            </label>
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={3}
-              className="w-full rounded-lg border px-3 py-2"
-              placeholder="Ex : préférence de créneau, accessibilité, etc."
+              min={1}
+              max={10}
+              value={qty}
+              onChange={(e) => setQty(Number(e.target.value))}
+              className="w-24 rounded-lg border px-3 py-2"
             />
           </div>
+        </div>
 
-          <div className="pt-2">
-            <button
-              type="submit"
-              className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-5 py-2.5 font-semibold text-white hover:bg-blue-700"
-            >
-              Valider la réservation
-            </button>
+        {/* Note optionnelle */}
+        <div>
+          <label className="block text-sm text-gray-600 mb-1">
+            Commentaire (optionnel)
+          </label>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={3}
+            className="w-full rounded-lg border px-3 py-2"
+            placeholder="Infos utiles pour l’organisation…"
+          />
+        </div>
+
+        {/* Récap prix + CTA */}
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-gray-600">
+            {guests} personne{guests > 1 ? 's' : ''} au total
           </div>
-        </form>
+          <Price offerKey={offer} qty={qty} />
+        </div>
+
+        <div className="pt-2">
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full rounded-xl bg-blue-600 text-white font-semibold py-3 hover:bg-blue-700 disabled:opacity-60"
+          >
+            {submitting ? 'Validation…' : 'Confirmer la réservation'}
+          </button>
+        </div>
+      </form>
+
+      <div className="mt-6 text-sm text-gray-500">
+        Besoin d’aide ?{' '}
+        <Link to="/dashboard" className="underline">
+          consultez vos réservations
+        </Link>
+        .
       </div>
     </div>
   );

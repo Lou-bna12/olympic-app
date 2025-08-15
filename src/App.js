@@ -1,6 +1,7 @@
 // src/App.js
 import React from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
+
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -11,13 +12,45 @@ import Reservation from './pages/Reservation';
 import Confirmation from './pages/Confirmation';
 import Admin from './pages/Admin';
 import Logout from './components/Logout';
+
 import Header from './components/Header';
 import Footer from './components/Footer';
-import PrivateRoute from './components/PrivateRoute';
-import AdminRoute from './components/AdminRoute';
+
+import { useAuth } from './context/AuthContext';
+
+// --- Wrappers locaux pour éviter tout problème d'import ---
+function RequireAuth({ children }) {
+  const { isAuthenticated, authReady } = useAuth() ?? {};
+  const location = useLocation();
+
+  if (!authReady) return null;
+
+  if (!isAuthenticated) {
+    const next = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?next=${next}`} replace />;
+  }
+  return children;
+}
+
+function RequireAdmin({ children }) {
+  const { isAuthenticated, isAdmin, authReady } = useAuth() ?? {};
+  const location = useLocation();
+
+  if (!authReady) return null;
+
+  if (!isAuthenticated) {
+    const next = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?next=${next}`} replace />;
+  }
+  if (!isAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return children;
+}
 
 const App = () => {
   const location = useLocation();
+
   const hideFooterRoutes = [
     '/login',
     '/register',
@@ -26,17 +59,14 @@ const App = () => {
     '/logout',
   ];
 
-  //  cacher le footer aussi sur tout /admin
-  const hideFooter =
-    hideFooterRoutes.includes(location.pathname) ||
-    location.pathname.startsWith('/admin');
-
   return (
     <>
       <Header />
+
       <Routes>
         {/* Public */}
         <Route path="/" element={<Home />} />
+        <Route path="/reservation" element={<Reservation />} />
         <Route path="/confirmation" element={<Confirmation />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
@@ -46,27 +76,34 @@ const App = () => {
         {/* Protégées */}
         <Route
           path="/dashboard"
-          element={<PrivateRoute component={Dashboard} />}
+          element={
+            <RequireAuth>
+              <Dashboard />
+            </RequireAuth>
+          }
         />
-        <Route
-          path="/reservation"
-          element={<PrivateRoute component={Reservation} />}
-        />
-
-        {/* Admin protégé */}
         <Route
           path="/admin/*"
           element={
-            <AdminRoute>
+            <RequireAdmin>
               <Admin />
-            </AdminRoute>
+            </RequireAdmin>
+          }
+        />
+        <Route
+          path="/logout"
+          element={
+            <RequireAuth>
+              <Logout />
+            </RequireAuth>
           }
         />
 
-        <Route path="/logout" element={<PrivateRoute component={Logout} />} />
+        {/* 404 simple (optionnel) */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
-      {!hideFooter && <Footer />}
+      {!hideFooterRoutes.includes(location.pathname) && <Footer />}
     </>
   );
 };

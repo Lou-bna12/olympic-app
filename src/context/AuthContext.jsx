@@ -1,23 +1,31 @@
 // src/context/AuthContext.jsx
 import React, {
   createContext,
-  useCallback,
   useContext,
   useEffect,
   useMemo,
   useState,
+  useCallback,
 } from 'react';
 
-const TOKEN_KEY = 'auth_token';
 const SESSION_KEY = 'session';
+const TOKEN_KEY = 'auth_token';
 
-const AuthCtx = createContext(null);
+const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [authReady, setAuthReady] = useState(false);
-  const [user, setUser] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [token, setToken] = useState(null);
+  const [user, setUser] = useState(null);
 
+  // Config (backend prêt plus tard)
+  //const API = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
+  const USE_MOCK =
+    String(process.env.REACT_APP_USE_MOCK_AUTH ?? 'true').toLowerCase() ===
+    'true';
+
+  // Hydratation depuis le localStorage
   useEffect(() => {
     try {
       const raw = localStorage.getItem(SESSION_KEY);
@@ -25,7 +33,10 @@ export function AuthProvider({ children }) {
         const session = JSON.parse(raw);
         setUser(session.user || null);
         setToken(session.token || null);
+        setIsAuthenticated(Boolean(session.token || session.user));
       }
+    } catch {
+      /* ignore */
     } finally {
       setAuthReady(true);
     }
@@ -38,32 +49,56 @@ export function AuthProvider({ children }) {
     else localStorage.removeItem(TOKEN_KEY);
   }, []);
 
-  // --- MOCK login/register (backend plus tard)
   const login = useCallback(
-    async (email, _password, role = 'user') => {
-      const fullName =
-        localStorage.getItem('register_full_name') || email.split('@')[0];
-      const newUser = { email, full_name: fullName, nom: fullName, role };
-      const newToken = 'local-dev-token';
-      setUser(newUser);
-      setToken(newToken);
-      persist(newUser, newToken);
-      return { user: newUser, token: newToken };
+    async (email, password) => {
+      if (USE_MOCK) {
+        const fullName =
+          localStorage.getItem('register_full_name') ||
+          (email ? email.split('@')[0] : 'Utilisateur');
+        const newUser = {
+          email,
+          full_name: fullName,
+          nom: fullName,
+          role: 'user',
+        };
+        const newToken = 'local-dev-token';
+        setUser(newUser);
+        setToken(newToken);
+        setIsAuthenticated(true);
+        persist(newUser, newToken);
+        return { user: newUser, token: newToken };
+      }
+
+      throw new Error(
+        'Mode backend non activé (REACT_APP_USE_MOCK_AUTH=true).'
+      );
     },
-    [persist]
+    [persist, USE_MOCK /*, API*/]
   );
 
   const register = useCallback(
-    async (fullName, email, _password, role = 'user') => {
-      const newUser = { email, full_name: fullName, nom: fullName, role };
-      const newToken = 'local-dev-token';
-      localStorage.setItem('register_full_name', fullName);
-      setUser(newUser);
-      setToken(newToken);
-      persist(newUser, newToken);
-      return { user: newUser, token: newToken };
+    async (fullName, email, password) => {
+      if (USE_MOCK) {
+        const newUser = {
+          email,
+          full_name: fullName,
+          nom: fullName,
+          role: 'user',
+        };
+        const newToken = 'local-dev-token';
+        localStorage.setItem('register_full_name', fullName);
+        setUser(newUser);
+        setToken(newToken);
+        setIsAuthenticated(true);
+        persist(newUser, newToken);
+        return { user: newUser, token: newToken };
+      }
+
+      throw new Error(
+        'Mode backend non activé (REACT_APP_USE_MOCK_AUTH=true).'
+      );
     },
-    [persist]
+    [persist, USE_MOCK /*, API*/]
   );
 
   const logout = useCallback(() => {
@@ -71,11 +106,10 @@ export function AuthProvider({ children }) {
     localStorage.removeItem(TOKEN_KEY);
     setUser(null);
     setToken(null);
+    setIsAuthenticated(false);
   }, []);
 
-  const isAuthenticated = !!user;
-
-  // 🔐 Calcul du rôle admin (fonctionne aussi quand on branchera un vrai backend)
+  // Rôle admin (compatible avec plusieurs conventions backend)
   const isAdmin = useMemo(() => {
     const u = user || {};
     return !!(
@@ -102,7 +136,7 @@ export function AuthProvider({ children }) {
     [authReady, isAuthenticated, isAdmin, user, token, login, register, logout]
   );
 
-  return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export const useAuth = () => useContext(AuthCtx);
+export const useAuth = () => useContext(AuthContext);
