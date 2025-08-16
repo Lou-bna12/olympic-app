@@ -1,63 +1,51 @@
 import React, {
   createContext,
+  useContext,
   useState,
   useEffect,
   useCallback,
-  useContext,
 } from 'react';
-import { login, register } from '../services/api';
+import { api_fetch } from '../services/api';
 
-export const AuthContext = createContext();
-export const useAuth = () => useContext(AuthContext);
+const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token') || null);
-  const [authReady, setAuthReady] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Récupération du profil utilisateur
-  const fetchUserProfile = useCallback(async () => {
-    if (!token) {
-      setAuthReady(true);
-      return;
-    }
+  const fetchUserProfile = useCallback(async (token) => {
     try {
-      const res = await fetch('http://127.0.0.1:8000/auth/me', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data);
-      }
-    } catch (error) {
-      console.error('Erreur lors de la récupération du profil :', error);
-    } finally {
-      setAuthReady(true);
+      const data = await api_fetch('/auth/me', {}, token);
+      setUser(data);
+    } catch (err) {
+      console.error('Erreur fetchUserProfile:', err);
+      setUser(null);
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
-    fetchUserProfile();
-  }, [fetchUserProfile]);
+    if (token) {
+      fetchUserProfile(token);
+    }
+    setLoading(false);
+  }, [token, fetchUserProfile]);
 
-  // Connexion
-  const loginUser = async (email, password) => {
-    const data = await login(email, password);
-    setToken(data.access_token);
-    localStorage.setItem('token', data.access_token);
-    await fetchUserProfile();
+  const login = async (email, password) => {
+    const data = await api_fetch('/auth/login', { email, password });
+    if (data.access_token) {
+      setToken(data.access_token);
+      localStorage.setItem('token', data.access_token);
+      await fetchUserProfile(data.access_token);
+    }
+    return data;
   };
 
-  // Inscription
-  const registerUser = async (nom, prenom, email, password) => {
-    const data = await register(nom, prenom, email, password);
-    setToken(data.access_token);
-    localStorage.setItem('token', data.access_token);
-    await fetchUserProfile();
+  const register = async (username, email, password) => {
+    return await api_fetch('/auth/register', { username, email, password });
   };
 
-  // Déconnexion
-  const logoutUser = () => {
+  const logout = () => {
     setUser(null);
     setToken(null);
     localStorage.removeItem('token');
@@ -65,18 +53,11 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider
-      value={{
-        user,
-        token,
-        authReady,
-        isAuthenticated: !!user,
-        isAdmin: user?.role === 'admin',
-        loginUser,
-        registerUser,
-        logoutUser,
-      }}
+      value={{ user, token, login, register, logout, loading }}
     >
       {children}
     </AuthContext.Provider>
   );
 };
+
+export const useAuth = () => useContext(AuthContext);

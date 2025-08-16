@@ -1,79 +1,66 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const Register = () => {
-  const { registerUser } = useAuth();
+  const { register } = useAuth();
   const navigate = useNavigate();
-
-  const [nom, setNom] = useState('');
-  const [prenom, setPrenom] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const onSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
     try {
-      await registerUser(nom, prenom, email, password);
-      navigate('/dashboard');
+      const res = await register(username, email, password);
+      if (res.id || res.message === 'User registered successfully') {
+        navigate('/login');
+      } else {
+        setError("Erreur lors de l'inscription.");
+      }
     } catch (err) {
-      setError('Erreur lors de la création du compte');
+      setError('Impossible de créer le compte.');
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900">
-      <div className="bg-gray-800 p-8 rounded-lg shadow-lg w-96">
-        <h2 className="text-2xl font-bold text-white mb-6">INSCRIPTION</h2>
-        {error && <p className="text-red-400 mb-4">{error}</p>}
-        <form onSubmit={onSubmit} className="space-y-4">
+    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <div className="w-full max-w-md bg-white shadow-lg rounded-lg p-6">
+        <h2 className="text-2xl font-bold text-center mb-6">Créer un compte</h2>
+        {error && <p className="text-red-500 text-center">{error}</p>}
+        <form onSubmit={handleSubmit} className="space-y-4">
           <input
             type="text"
-            placeholder="Nom"
-            className="w-full p-3 rounded bg-white text-black"
-            value={nom}
-            onChange={(e) => setNom(e.target.value)}
-            required
-          />
-          <input
-            type="text"
-            placeholder="Prénom"
-            className="w-full p-3 rounded bg-white text-black"
-            value={prenom}
-            onChange={(e) => setPrenom(e.target.value)}
+            placeholder="Nom d'utilisateur"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            className="w-full p-2 border rounded"
             required
           />
           <input
             type="email"
             placeholder="Email"
-            className="w-full p-3 rounded bg-white text-black"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            className="w-full p-2 border rounded"
             required
           />
           <input
             type="password"
             placeholder="Mot de passe"
-            className="w-full p-3 rounded bg-white text-black"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            className="w-full p-2 border rounded"
             required
           />
           <button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded"
+            className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700"
           >
-            Créer mon compte
+            S'inscrire
           </button>
         </form>
-        <p className="mt-4 text-gray-300">
-          Déjà un compte ?{' '}
-          <Link to="/login" className="text-blue-400 hover:underline">
-            Se connecter
-          </Link>
-        </p>
       </div>
     </div>
   );
