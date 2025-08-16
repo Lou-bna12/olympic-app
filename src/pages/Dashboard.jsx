@@ -1,65 +1,64 @@
 import React, { useEffect, useState } from 'react';
-import { api_listMine, api_listAll } from '../services/reservations';
 import { useAuth } from '../context/AuthContext';
+import { api_listMine } from '../services/reservations';
+import { Link } from 'react-router-dom';
 
-const Dashboard = () => {
-  const { isAdmin, token } = useAuth();
+export default function Dashboard() {
+  const { token, user } = useAuth();
   const [reservations, setReservations] = useState([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchReservations = async () => {
       try {
-        let data;
-        if (isAdmin) {
-          data = await api_listAll(token);
-        } else {
-          data = await api_listMine(token);
-        }
+        const data = await api_listMine(token); // ✅ token ajouté
         setReservations(data);
-      } catch (error) {
-        console.error(
-          'Erreur lors de la récupération des réservations :',
-          error
-        );
-      } finally {
-        setLoading(false);
+      } catch (err) {
+        console.error('Erreur lors de la récupération des réservations :', err);
       }
     };
 
-    fetchReservations();
-  }, [isAdmin, token]);
-
-  if (loading) {
-    return <p className="text-center mt-10">Chargement des réservations...</p>;
-  }
+    if (token) {
+      fetchReservations();
+    }
+  }, [token]);
 
   return (
-    <div className="p-6">
+    <div className="max-w-4xl mx-auto p-6">
       <h2 className="text-2xl font-bold mb-4">
-        {isAdmin ? 'Toutes les réservations' : 'Mes réservations'}
+        Tableau de bord — {user?.name || user?.email}
       </h2>
+
+      <div className="mb-6">
+        <Link
+          to="/reservation"
+          className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+        >
+          Nouvelle réservation
+        </Link>
+      </div>
+
+      <h3 className="text-xl font-semibold mb-2">Mes réservations</h3>
       {reservations.length === 0 ? (
-        <p>Aucune réservation trouvée.</p>
+        <p className="text-gray-600">Aucune réservation pour le moment.</p>
       ) : (
-        <table className="w-full border border-gray-300">
-          <thead>
-            <tr className="bg-gray-200">
-              <th className="p-2 border">ID</th>
-              <th className="p-2 border">Offre</th>
-              <th className="p-2 border">Quantité</th>
-              <th className="p-2 border">Prix total</th>
-              <th className="p-2 border">Email</th>
+        <table className="w-full border">
+          <thead className="bg-gray-100">
+            <tr>
+              <th className="border px-3 py-2">ID</th>
+              <th className="border px-3 py-2">Offre</th>
+              <th className="border px-3 py-2">Quantité</th>
+              <th className="border px-3 py-2">Prix total (€)</th>
+              <th className="border px-3 py-2">Email</th>
             </tr>
           </thead>
           <tbody>
             {reservations.map((r) => (
-              <tr key={r.id} className="text-center">
-                <td className="p-2 border">{r.id}</td>
-                <td className="p-2 border">{r.offre}</td>
-                <td className="p-2 border">{r.quantite}</td>
-                <td className="p-2 border">{r.prix_total} €</td>
-                <td className="p-2 border">{r.email}</td>
+              <tr key={r.id}>
+                <td className="border px-3 py-2">{r.id}</td>
+                <td className="border px-3 py-2">{r.offre}</td>
+                <td className="border px-3 py-2">{r.quantite}</td>
+                <td className="border px-3 py-2">{r.prix_total}</td>
+                <td className="border px-3 py-2">{r.email}</td>
               </tr>
             ))}
           </tbody>
@@ -67,6 +66,4 @@ const Dashboard = () => {
       )}
     </div>
   );
-};
-
-export default Dashboard;
+}

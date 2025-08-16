@@ -32,6 +32,15 @@ export default function Header() {
           {displayName ? (
             <>
               <span className="text-sm">Bonjour, {displayName}</span>
+
+              {/* Nouveau bouton Réserver */}
+              <Link
+                to="/reservation"
+                className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700"
+              >
+                Réserver
+              </Link>
+
               <button
                 onClick={logout}
                 className="px-3 py-1 rounded bg-gray-900 text-white"
