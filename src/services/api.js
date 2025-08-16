@@ -1,24 +1,27 @@
 import axios from 'axios';
 
-export const BASE_URL = 'http://127.0.0.1:8000';
-
+// Base URL  backend FastAPI
 const api = axios.create({
-  baseURL: BASE_URL,
-  headers: { 'Content-Type': 'application/json' },
+  baseURL: 'http://127.0.0.1:8000',
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
+
+// === AUTH ===
 
 // Login
 export const login = async (email, password) => {
-  const response = await api.post('/login', {
+  const response = await api.post('/auth/login', {
     email,
-    mot_de_passe: password,
+    mot_de_passe: password, // correspond au backend
   });
   return response.data;
 };
 
-// Signup
+// Register
 export const register = async (nom, prenom, email, mot_de_passe) => {
-  const response = await api.post('/signup', {
+  const response = await api.post('/auth/register', {
     nom,
     prenom,
     email,
@@ -27,20 +30,13 @@ export const register = async (nom, prenom, email, mot_de_passe) => {
   return response.data;
 };
 
-// Appel API générique avec Axios
-export const api_fetch = async (url, options = {}, token = null) => {
-  const config = {
-    url,
-    method: options.method || 'GET',
+// Profil utilisateur (token requis)
+export const getProfile = async (token) => {
+  const response = await api.get('/auth/me', {
     headers: {
-      ...(token && { Authorization: `Bearer ${token}` }),
-      ...options.headers,
+      Authorization: `Bearer ${token}`,
     },
-  };
-
-  if (options.data) config.data = options.data;
-
-  const response = await api.request(config);
+  });
   return response.data;
 };
 
