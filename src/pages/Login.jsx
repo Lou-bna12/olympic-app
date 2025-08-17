@@ -1,58 +1,94 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 const Login = () => {
-  const { login } = useAuth();
+  const [form, setForm] = useState({
+    email: '',
+    password: '',
+  });
+
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await login(email, password);
-      if (res.access_token) {
-        navigate('/dashboard');
-      } else {
-        setError('Email ou mot de passe incorrect.');
+      const response = await fetch('http://127.0.0.1:8000/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ Erreur de connexion:', errorData);
+        return;
       }
-    } catch (err) {
-      setError('Erreur de connexion.');
+
+      const data = await response.json();
+      console.log('✅ Connexion réussie:', data);
+      localStorage.setItem('token', data.access_token);
+
+      // 👉 Redirection vers Dashboard
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('⚠️ Erreur serveur:', error);
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="w-full max-w-md bg-white shadow-lg rounded-lg p-6">
-        <h2 className="text-2xl font-bold text-center mb-6">Connexion</h2>
-        {error && <p className="text-red-500 text-center">{error}</p>}
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-md">
+      <h2 className="text-2xl font-bold text-center mb-4">🔑 Connexion</h2>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Email */}
+        <div>
+          <label className="block font-semibold">E-mail *</label>
           <input
             type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full p-2 border rounded"
+            name="email"
+            placeholder="ex: monemail@example.com"
+            value={form.email}
+            onChange={handleChange}
             required
+            className="border p-2 w-full rounded"
           />
-          <input
-            type="password"
-            placeholder="Mot de passe"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-2 border rounded"
-            required
-          />
-          <button
-            type="submit"
-            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
-          >
-            Se connecter
-          </button>
-        </form>
-      </div>
+        </div>
+
+        {/* Mot de passe */}
+        <div>
+          <label className="block font-semibold">Mot de passe *</label>
+          <div className="flex">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              name="password"
+              placeholder="Votre mot de passe"
+              value={form.password}
+              onChange={handleChange}
+              required
+              className="border p-2 w-full rounded-l"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="bg-gray-200 px-3 rounded-r"
+            >
+              {showPassword ? '🙈' : '👁️'}
+            </button>
+          </div>
+        </div>
+
+        {/* Bouton */}
+        <button
+          type="submit"
+          className="bg-blue-600 text-white p-2 rounded w-full hover:bg-blue-700"
+        >
+          Se connecter
+        </button>
+      </form>
     </div>
   );
 };

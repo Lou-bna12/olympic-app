@@ -1,16 +1,19 @@
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, declarative_base
 
-# URL de connexion à ta base PostgreSQL
+# URL de connexion PostgreSQL
+DATABASE_URL = "postgresql://postgres:loubna12@localhost:5432/olympicdb"
 
-DATABASE_URL = "postgresql://postgres:loubna12@localhost:5432/olympics_db"
-
-# Création de l'engine
 engine = create_engine(DATABASE_URL)
 
-# Session locale
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Base pour les modèles
 Base = declarative_base()
+
+# Dépendance pour récupérer la session DB
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

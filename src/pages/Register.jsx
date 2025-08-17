@@ -1,67 +1,137 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 const Register = () => {
-  const { register } = useAuth();
+  const [form, setForm] = useState({
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+  });
+
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (form.password !== form.confirmPassword) {
+      alert('❌ Les mots de passe ne correspondent pas !');
+      return;
+    }
+
     try {
-      const res = await register(username, email, password);
-      if (res.id || res.message === 'User registered successfully') {
-        navigate('/login');
-      } else {
-        setError("Erreur lors de l'inscription.");
+      const response = await fetch('http://127.0.0.1:8000/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: form.username,
+          email: form.email,
+          password: form.password,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ Erreur d’inscription:', errorData);
+        return;
       }
-    } catch (err) {
-      setError('Impossible de créer le compte.');
+
+      const data = await response.json();
+      console.log('✅ Inscription réussie:', data);
+
+      // 👉 Redirection vers Login
+      navigate('/login');
+    } catch (error) {
+      console.error('⚠️ Erreur serveur:', error);
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="w-full max-w-md bg-white shadow-lg rounded-lg p-6">
-        <h2 className="text-2xl font-bold text-center mb-6">Créer un compte</h2>
-        {error && <p className="text-red-500 text-center">{error}</p>}
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="max-w-lg mx-auto mt-8 p-6 bg-white rounded-lg shadow-md">
+      <h2 className="text-2xl font-bold text-center mb-4">
+        🎟️ Inscription Jeux Olympiques
+      </h2>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Username */}
+        <div>
+          <label className="block font-semibold">Nom d’utilisateur *</label>
           <input
             type="text"
-            placeholder="Nom d'utilisateur"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className="w-full p-2 border rounded"
+            name="username"
+            placeholder="Votre nom d’utilisateur"
+            value={form.username}
+            onChange={handleChange}
             required
+            className="border p-2 w-full rounded"
           />
+        </div>
+
+        {/* Email */}
+        <div>
+          <label className="block font-semibold">E-mail *</label>
           <input
             type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full p-2 border rounded"
+            name="email"
+            placeholder="ex: monemail@example.com"
+            value={form.email}
+            onChange={handleChange}
             required
+            className="border p-2 w-full rounded"
           />
+        </div>
+
+        {/* Mot de passe */}
+        <div>
+          <label className="block font-semibold">Mot de passe *</label>
+          <div className="flex">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              name="password"
+              placeholder="Votre mot de passe"
+              value={form.password}
+              onChange={handleChange}
+              required
+              className="border p-2 w-full rounded-l"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="bg-gray-200 px-3 rounded-r"
+            >
+              {showPassword ? '🙈' : '👁️'}
+            </button>
+          </div>
+        </div>
+
+        {/* Confirmer mot de passe */}
+        <div>
+          <label className="block font-semibold">
+            Confirmer le mot de passe *
+          </label>
           <input
-            type="password"
-            placeholder="Mot de passe"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-2 border rounded"
+            type={showPassword ? 'text' : 'password'}
+            name="confirmPassword"
+            placeholder="Répétez le mot de passe"
+            value={form.confirmPassword}
+            onChange={handleChange}
             required
+            className="border p-2 w-full rounded"
           />
-          <button
-            type="submit"
-            className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700"
-          >
-            S'inscrire
-          </button>
-        </form>
-      </div>
+        </div>
+
+        {/* Bouton */}
+        <button
+          type="submit"
+          className="bg-blue-600 text-white p-2 rounded w-full hover:bg-blue-700"
+        >
+          S’inscrire
+        </button>
+      </form>
     </div>
   );
 };

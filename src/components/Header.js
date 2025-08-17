@@ -1,61 +1,49 @@
-// src/components/Header.js
 import React from 'react';
-import { Link, NavLink } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { Link, useNavigate } from 'react-router-dom';
 
-export default function Header() {
-  const { user, isAdmin, logout } = useAuth() ?? {};
-  const displayName =
-    user?.full_name ||
-    [user?.first_name, user?.last_name].filter(Boolean).join(' ') ||
-    user?.name ||
-    null;
+const Header = () => {
+  const navigate = useNavigate();
+  const token = localStorage.getItem('token');
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    navigate('/login'); // redirection vers login après déconnexion
+  };
 
   return (
-    <header className="border-b bg-white">
-      <nav className="mx-auto max-w-6xl px-4 h-14 flex items-center gap-4">
+    <header className="bg-white shadow-md sticky top-0 z-50">
+      <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+        {/* Logo */}
         <Link to="/" className="flex items-center gap-2">
           <img src="/images/logo.png" alt="Logo" className="w-8 h-8" />
           <span className="font-semibold">JO Paris 2024</span>
         </Link>
-
-        {isAdmin && (
-          <NavLink
-            to="/admin"
-            className="ml-2 text-sm text-gray-700 hover:text-black"
-          >
-            Admin
-          </NavLink>
-        )}
-
-        <div className="ml-auto flex items-center gap-3">
-          {displayName ? (
+        {/* Liens */}
+        <div className="space-x-4">
+          {!token ? (
             <>
-              <span className="text-sm">Bonjour, {displayName}</span>
-
-              {/* Nouveau bouton Réserver */}
-              <Link
-                to="/reservation"
-                className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700"
-              >
-                Réserver
+              <Link to="/login" className="text-gray-700 hover:text-blue-600">
+                Se connecter
               </Link>
-
-              <button
-                onClick={logout}
-                className="px-3 py-1 rounded bg-gray-900 text-white"
+              <Link
+                to="/register"
+                className="text-gray-700 hover:text-blue-600"
               >
-                Se déconnecter
-              </button>
+                S’inscrire
+              </Link>
             </>
           ) : (
-            <>
-              <Link to="/login">Se connecter</Link>
-              <Link to="/register">S’inscrire</Link>
-            </>
+            <button
+              onClick={handleLogout}
+              className="text-red-600 font-semibold hover:underline"
+            >
+              Se déconnecter
+            </button>
           )}
         </div>
-      </nav>
+      </div>
     </header>
   );
-}
+};
+
+export default Header;

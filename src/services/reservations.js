@@ -1,56 +1,36 @@
-import { api_fetch } from './api';
+import axios from 'axios';
 
-export function api_listAll(token) {
-  return api_fetch('/reservations/', { method: 'GET' }, token);
-}
+const API_URL = 'http://127.0.0.1:8000';
 
-export function api_listMine(token) {
-  return api_fetch('/reservations/mine', { method: 'GET' }, token);
-}
+// Récupérer toutes les réservations
+export const getReservations = async () => {
+  const response = await axios.get(`${API_URL}/reservations/`);
+  return response.data;
+};
 
-export function api_read(id, token) {
-  return api_fetch(`/reservations/${id}`, { method: 'GET' }, token);
-}
+// Créer une nouvelle réservation
+export const createReservation = async (reservation) => {
+  const response = await axios.post(`${API_URL}/reservations/`, reservation);
+  return response.data;
+};
 
-export function api_create(reservationData, token) {
-  return api_fetch(
-    '/reservations/',
-    {
-      method: 'POST',
-      data: reservationData,
-    },
-    token
+// Récupérer une réservation par ID
+export const getReservationById = async (id) => {
+  const response = await axios.get(`${API_URL}/reservations/${id}`);
+  return response.data;
+};
+
+// Mettre à jour une réservation
+export const updateReservation = async (id, updatedData) => {
+  const response = await axios.put(
+    `${API_URL}/reservations/${id}`,
+    updatedData
   );
-}
+  return response.data;
+};
 
-export function api_update(id, reservationData, token) {
-  return api_fetch(
-    `/reservations/${id}`,
-    {
-      method: 'PATCH',
-      data: reservationData,
-    },
-    token
-  );
-}
-
-export function api_replace(id, reservationData, token) {
-  return api_fetch(
-    `/reservations/${id}`,
-    {
-      method: 'PUT',
-      data: reservationData,
-    },
-    token
-  );
-}
-
-export function api_delete(id, token) {
-  return api_fetch(
-    `/reservations/${id}`,
-    {
-      method: 'DELETE',
-    },
-    token
-  );
-}
+// Supprimer une réservation
+export const deleteReservation = async (id) => {
+  const response = await axios.delete(`${API_URL}/reservations/${id}`);
+  return response.data;
+};

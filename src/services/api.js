@@ -1,41 +1,57 @@
 import axios from 'axios';
 
-// Base URL  backend FastAPI
+const API_URL = 'http://127.0.0.1:8000';
+
+// --- Axios instance ---
 const api = axios.create({
-  baseURL: 'http://127.0.0.1:8000',
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// === AUTH ===
+// --- Intercepteur pour ajouter le token ---
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
-// Login
-export const login = async (email, password) => {
+// --- Fonctions spécifiques Auth ---
+export async function login(email, password) {
   const response = await api.post('/auth/login', {
     email,
-    mot_de_passe: password, // correspond au backend
+    password, // ✅ champ attendu par le backend
   });
   return response.data;
-};
+}
 
-// Register
-export const register = async (nom, prenom, email, mot_de_passe) => {
+export async function register(nom, prenom, email, password) {
   const response = await api.post('/auth/register', {
     nom,
     prenom,
     email,
-    mot_de_passe,
+    password, // ✅ champ attendu par le backend
   });
   return response.data;
-};
+}
 
-// Profil utilisateur (token requis)
+// --- Fonctions pour les réservations ---
+export async function getMyReservations() {
+  const response = await api.get('/reservations/me');
+  return response.data;
+}
+
+export async function createReservation(reservationData) {
+  const response = await api.post('/reservations/', reservationData);
+  return response.data;
+}
+
 export const getProfile = async (token) => {
-  const response = await api.get('/auth/me', {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+  const response = await axios.get(`${API_URL}/auth/me`, {
+    headers: { Authorization: `Bearer ${token}` },
   });
   return response.data;
 };

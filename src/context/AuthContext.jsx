@@ -1,63 +1,89 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
-} from 'react';
-import { api_fetch } from '../services/api';
+import React, { createContext, useState, useEffect } from 'react';
+import axios from 'axios';
 
 const AuthContext = createContext();
 
-export const AuthProvider = ({ children }) => {
+const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('token') || null);
   const [loading, setLoading] = useState(true);
 
-  const fetchUserProfile = useCallback(async (token) => {
-    try {
-      const data = await api_fetch('/auth/me', {}, token);
-      setUser(data);
-    } catch (err) {
-      console.error('Erreur fetchUserProfile:', err);
-      setUser(null);
+  // Vérifie si un token existe dans localStorage au démarrage
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      console.log('📌 Token trouvé dans localStorage:', token);
+      fetchUser(token);
+    } else {
+      setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    if (token) {
-      fetchUserProfile(token);
+  // Fonction pour récupérer le profil utilisateur
+  const fetchUser = async (token) => {
+    try {
+      const response = await axios.get('http://127.0.0.1:8000/auth/me', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setUser(response.data);
+    } catch (error) {
+      console.error('❌ Erreur récupération profil:', error);
+      setUser(null);
+      localStorage.removeItem('token');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  }, [token, fetchUserProfile]);
+  };
 
+  // Connexion
   const login = async (email, password) => {
-    const data = await api_fetch('/auth/login', { email, password });
-    if (data.access_token) {
-      setToken(data.access_token);
-      localStorage.setItem('token', data.access_token);
-      await fetchUserProfile(data.access_token);
+    try {
+      const response = await axios.post('http://127.0.0.1:8000/auth/login', {
+        email,
+        password,
+      });
+      const { access_token } = response.data;
+      localStorage.setItem('token', access_token);
+      await fetchUser(access_token);
+      return true;
+    } catch (error) {
+      console.error('❌ Erreur de connexion:', error);
+      return false;
     }
-    return data;
   };
 
+  // Inscription
   const register = async (username, email, password) => {
-    return await api_fetch('/auth/register', { username, email, password });
+    try {
+      await axios.post('http://127.0.0.1:8000/auth/register', {
+        username,
+        email,
+        password,
+      });
+      return true;
+    } catch (error) {
+      console.error('❌ Erreur d’inscription:', error.response?.data || error);
+      return false;
+    }
   };
 
+  // Déconnexion
   const logout = () => {
-    setUser(null);
-    setToken(null);
     localStorage.removeItem('token');
+    setUser(null);
   };
 
   return (
-    <AuthContext.Provider
-      value={{ user, token, login, register, logout, loading }}
-    >
+    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+// ✅ Hook personnalisé pour utiliser facilement le contexte
+export const useAuth = () => {
+  return React.useContext(AuthContext);
+};
+
+export { AuthContext, AuthProvider };

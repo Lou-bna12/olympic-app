@@ -1,6 +1,7 @@
 // src/App.js
 import React, { useEffect, useState } from 'react';
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import MesReservations from './components/MesReservations';
 
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -14,52 +15,58 @@ import Admin from './pages/Admin';
 import Logout from './components/Logout';
 
 import Header from './components/Header';
-import Footer from './components/Footer';
+import Footer from './components/Footer'; // import Footer
 
 import { useAuth } from './context/AuthContext';
 
-// --- Wrappers locaux pour éviter tout problème d'import ---
+// --- Wrapper pour protéger les routes ---
 function RequireAuth({ children }) {
-  const { isAuthenticated, authReady } = useAuth() ?? {};
+  const { user, loading } = useAuth();
   const location = useLocation();
 
-  if (!authReady) return null;
+  if (loading) {
+    return <p className="text-center mt-10">⏳ Vérification en cours...</p>;
+  }
 
-  if (!isAuthenticated) {
+  if (!user) {
     const next = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/login?next=${next}`} replace />;
   }
+
   return children;
 }
 
+// --- Wrapper pour les routes admin ---
 function RequireAdmin({ children }) {
-  const { isAuthenticated, isAdmin, authReady } = useAuth() ?? {};
+  const { user, loading } = useAuth();
   const location = useLocation();
 
-  if (!authReady) return null;
+  if (loading) {
+    return <p className="text-center mt-10">⏳ Vérification en cours...</p>;
+  }
 
-  if (!isAuthenticated) {
+  if (!user) {
     const next = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={`/login?next=${next}`} replace />;
   }
-  if (!isAdmin) {
-    return <Navigate to="/dashboard" replace />;
-  }
-  return children;
+
+  // ⚠️ Ici tu pourras vérifier si user.role === "admin"
+  return <Navigate to="/dashboard" replace />;
 }
 
 const App = () => {
   const location = useLocation();
   const [backendStatus, setBackendStatus] = useState('Vérification...');
 
-  // Test de connexion au backend
+  // Test API backend
   useEffect(() => {
     fetch('http://127.0.0.1:8000/ping')
       .then((res) => res.json())
-      .then((data) => setBackendStatus(data.status))
+      .then((data) => setBackendStatus(data.message))
       .catch(() => setBackendStatus('Erreur connexion API'));
   }, []);
 
+  // Les pages où on cache le footer
   const hideFooterRoutes = [
     '/login',
     '/register',
@@ -72,7 +79,7 @@ const App = () => {
     <>
       <Header />
 
-      {/* Affichage du statut backend */}
+      {/* Status backend */}
       <div
         style={{ textAlign: 'center', padding: '10px', background: '#f1f1f1' }}
       >
@@ -80,7 +87,7 @@ const App = () => {
       </div>
 
       <Routes>
-        {/* Public */}
+        {/* Routes publiques */}
         <Route path="/" element={<Home />} />
         <Route path="/reservation" element={<Reservation />} />
         <Route path="/confirmation" element={<Confirmation />} />
@@ -89,7 +96,7 @@ const App = () => {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
 
-        {/* Protégées */}
+        {/* Routes protégées */}
         <Route
           path="/dashboard"
           element={
@@ -114,11 +121,20 @@ const App = () => {
             </RequireAuth>
           }
         />
+        <Route
+          path="/mes-reservations"
+          element={
+            <RequireAuth>
+              <MesReservations />
+            </RequireAuth>
+          }
+        />
 
-        {/* 404 simple */}
+        {/* Redirection 404 */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
+      {/* ✅ Footer affiché sauf sur certaines pages */}
       {!hideFooterRoutes.includes(location.pathname) && <Footer />}
     </>
   );

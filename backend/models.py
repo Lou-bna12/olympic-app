@@ -1,11 +1,23 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, ForeignKey, Date
 from database import Base
 
 class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    nom = Column(String(100), nullable=False)
-    prenom = Column(String(100), nullable=False)
-    email = Column(String(100), unique=True, index=True, nullable=False)
-    password = Column(String(255), nullable=False)  # mot de passe hashé
+    username = Column(String, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=False)
+    password = Column(String, nullable=False)
+
+
+class Reservation(Base):
+    __tablename__ = "reservations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nom = Column(String, nullable=False)
+    prenom = Column(String, nullable=False)
+    email = Column(String, nullable=False)
+    date = Column(Date, nullable=False)
+    offer = Column(String, nullable=False)
+    quantity = Column(Integer, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"))

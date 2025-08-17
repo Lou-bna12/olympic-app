@@ -1,113 +1,147 @@
 import React, { useState } from 'react';
-import { api_create } from '../services/reservations';
-import { useAuth } from '../context/AuthContext';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 const Reservation = () => {
-  const { token } = useAuth();
-  const [offre, setOffre] = useState('solo');
-  const [quantite, setQuantite] = useState(1);
-  const [message, setMessage] = useState(null);
-  const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
-  const offresDisponibles = {
+  const PRICES = {
     solo: 25,
     duo: 50,
     familiale: 150,
   };
 
+  const [formData, setFormData] = useState({
+    nom: '',
+    prenom: '',
+    date: '',
+    offer: '',
+    quantity: 1,
+  });
+
+  const totalPrice = formData.offer
+    ? PRICES[formData.offer] * formData.quantity
+    : 0;
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(null);
-    setMessage(null);
 
     try {
-      const prix_total = offresDisponibles[offre] * quantite;
-      const reservationData = {
-        offre,
-        quantite,
-        prix_total,
-      };
-
-      const result = await api_create(reservationData, token);
-      setMessage(`Réservation confirmée ✅ ID: ${result.id}`);
-    } catch (err) {
-      console.error(err);
-
-      let errorMsg = 'Erreur lors de la réservation';
-      if (err.response?.data?.detail) {
-        if (Array.isArray(err.response.data.detail)) {
-          errorMsg = err.response.data.detail.map((e) => e.msg).join(', ');
-        } else if (typeof err.response.data.detail === 'string') {
-          errorMsg = err.response.data.detail;
-        } else {
-          errorMsg = JSON.stringify(err.response.data.detail);
-        }
+      const token = localStorage.getItem('token'); // récupéré au login
+      if (!token) {
+        alert('Vous devez être connecté pour réserver !');
+        navigate('/login');
+        return;
       }
 
-      setError(errorMsg);
+      const response = await fetch('http://127.0.0.1:8000/reservations/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          nom: formData.nom,
+          prenom: formData.prenom,
+          date: formData.date,
+          offer: formData.offer,
+          quantity: Number(formData.quantity),
+        }),
+      });
+
+      if (response.ok) {
+        alert('Réservation réussie 🎉');
+        navigate('/dashboard');
+      } else {
+        const errorData = await response.json();
+        console.error('Erreur réservation:', errorData);
+        alert('Erreur lors de la réservation ❌');
+      }
+    } catch (err) {
+      console.error('Erreur réseau:', err);
+      alert('Erreur réseau ❌');
     }
   };
 
   return (
-    <div className="max-w-lg mx-auto p-6 bg-white rounded-lg shadow-lg">
-      <h2 className="text-2xl font-bold mb-4">Réserver des billets</h2>
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
+      <div className="bg-white shadow-lg rounded-2xl p-8 w-full max-w-md">
+        <button
+          onClick={() => navigate(-1)}
+          className="mb-6 text-sm text-blue-600 hover:text-blue-800 flex items-center"
+        >
+          ⬅ Retour
+        </button>
 
-      {error && (
-        <div className="bg-red-100 text-red-600 p-2 rounded mb-4">{error}</div>
-      )}
-      {message && (
-        <div className="bg-green-100 text-green-600 p-2 rounded mb-4">
-          {message}
-          <div className="mt-4">
-            <Link
-              to="/dashboard"
-              className="inline-block bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-900"
-            >
-              Retour au Dashboard
-            </Link>
-          </div>
-        </div>
-      )}
+        <h1 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+          Réserver un billet
+        </h1>
 
-      {!message && (
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block font-semibold">Offre</label>
-            <select
-              value={offre}
-              onChange={(e) => setOffre(e.target.value)}
-              className="border p-2 w-full"
-            >
-              <option value="solo">Offre Solo — 25 €</option>
-              <option value="duo">Offre Duo — 50 €</option>
-              <option value="familiale">Offre Familiale — 150 €</option>
-            </select>
-          </div>
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          <input
+            type="text"
+            name="nom"
+            value={formData.nom}
+            onChange={handleChange}
+            placeholder="Nom"
+            className="w-full border rounded-lg px-3 py-2"
+            required
+          />
+          <input
+            type="text"
+            name="prenom"
+            value={formData.prenom}
+            onChange={handleChange}
+            placeholder="Prénom"
+            className="w-full border rounded-lg px-3 py-2"
+            required
+          />
+          <input
+            type="date"
+            name="date"
+            value={formData.date}
+            onChange={handleChange}
+            className="w-full border rounded-lg px-3 py-2"
+            required
+          />
+          <select
+            name="offer"
+            value={formData.offer}
+            onChange={handleChange}
+            className="w-full border rounded-lg px-3 py-2"
+            required
+          >
+            <option value="">Choisir une offre</option>
+            <option value="solo">Solo - 25 €</option>
+            <option value="duo">Duo - 50 €</option>
+            <option value="familiale">Familiale - 150 €</option>
+          </select>
+          <input
+            type="number"
+            name="quantity"
+            min="1"
+            value={formData.quantity}
+            onChange={handleChange}
+            className="w-full border rounded-lg px-3 py-2"
+            required
+          />
 
-          <div>
-            <label className="block font-semibold">Quantité</label>
-            <input
-              type="number"
-              min="1"
-              value={quantite}
-              onChange={(e) => setQuantite(parseInt(e.target.value))}
-              className="border p-2 w-full"
-            />
-          </div>
-
-          <p className="font-semibold">
-            Total : {quantite * offresDisponibles[offre]} €
+          <p className="text-lg font-semibold text-gray-700">
+            Total à payer : {totalPrice} €
           </p>
 
           <button
             type="submit"
-            className="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl mt-4 transition duration-200 shadow-md"
           >
-            Confirmer la réservation
+            Réserver
           </button>
         </form>
-      )}
+      </div>
     </div>
   );
 };
