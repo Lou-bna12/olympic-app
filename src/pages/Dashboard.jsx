@@ -1,8 +1,56 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const [stats, setStats] = useState({
+    total_reservations: 0,
+    next_reservation_date: null,
+    next_reservation_offre: null,
+    active_reservations: 0,
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const response = await fetch(
+          'http://127.0.0.1:8000/reservations/stats',
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setStats(data);
+        }
+      } catch (error) {
+        console.error(
+          'Erreur lors de la récupération des statistiques:',
+          error
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 py-8 px-4 flex items-center justify-center">
+        <p>Chargement...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 py-8 px-4">
@@ -23,8 +71,10 @@ const Dashboard = () => {
             <h2 className="text-xl font-semibold text-gray-800 mb-2">
               Mes Réservations
             </h2>
-            <p className="text-3xl font-bold text-blue-600">2</p>
-            <p className="text-gray-600">réservations actives</p>
+            <p className="text-3xl font-bold text-blue-600">
+              {stats.total_reservations}
+            </p>
+            <p className="text-gray-600">réservations au total</p>
           </div>
 
           <div className="bg-white rounded-2xl shadow-lg p-6">
@@ -32,10 +82,29 @@ const Dashboard = () => {
               Prochaine Réservation
             </h2>
             <p className="text-2xl font-bold text-green-600">
-              30 septembre 2025
+              {stats.next_reservation_date
+                ? new Date(stats.next_reservation_date).toLocaleDateString(
+                    'fr-FR'
+                  )
+                : 'Aucune'}
             </p>
-            <p className="text-gray-600">Offre: Solo</p>
+            <p className="text-gray-600">
+              {stats.next_reservation_offre
+                ? `Offre: ${stats.next_reservation_offre}`
+                : ''}
+            </p>
           </div>
+        </div>
+
+        {/* Carte réservations actives */}
+        <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">
+            Réservations Actives
+          </h2>
+          <p className="text-3xl font-bold text-orange-600">
+            {stats.active_reservations}
+          </p>
+          <p className="text-gray-600">réservations à venir</p>
         </div>
 
         {/* Actions rapides */}

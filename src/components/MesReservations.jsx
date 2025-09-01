@@ -10,26 +10,44 @@ const MesReservations = () => {
     const fetchReservations = async () => {
       try {
         const token = localStorage.getItem('token');
+        console.log('🔐 Token frontend:', token ? 'Présent' : 'Absent'); // LOG
+
         if (!token) {
           alert('Vous devez être connecté !');
           navigate('/login');
           return;
         }
 
+        console.log('📡 Envoi requête API...'); // LOG
         const response = await fetch('http://127.0.0.1:8000/reservations/me', {
           headers: {
             Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json', // AJOUT IMPORTANT
           },
         });
 
+        console.log('📊 Status response:', response.status); // LOG
+
+        if (response.status === 401) {
+          console.log('❌ Token invalide ou expiré'); // LOG
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          navigate('/login');
+          return;
+        }
+
         if (response.ok) {
           const data = await response.json();
+          console.log('✅ Data reçue:', data); // LOG
           setReservations(data);
         } else {
-          console.error('Erreur API:', await response.json());
+          const errorData = await response.json();
+          console.error('❌ Erreur API:', errorData);
+          alert('Erreur lors du chargement des réservations');
         }
       } catch (err) {
-        console.error('Erreur réseau:', err);
+        console.error('🌐 Erreur réseau:', err);
+        alert('Erreur de connexion au serveur');
       } finally {
         setLoading(false);
       }
@@ -49,9 +67,8 @@ const MesReservations = () => {
   return (
     <div className="min-h-screen bg-gray-100 py-8 px-4">
       <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-lg p-6">
-        {/* ✅ Bouton Retour */}
         <button
-          onClick={() => navigate(-1)} // Retour à la page précédente
+          onClick={() => navigate(-1)}
           className="mb-4 flex items-center text-blue-600 hover:text-blue-800"
         >
           <svg
@@ -93,6 +110,10 @@ const MesReservations = () => {
                 key={res.id}
                 className="border rounded-lg p-4 shadow-sm bg-gray-50"
               >
+                <p>
+                  <span className="font-semibold">ID Réservation :</span>{' '}
+                  {res.id}
+                </p>
                 <p>
                   <span className="font-semibold">Utilisateur :</span>{' '}
                   {res.username}

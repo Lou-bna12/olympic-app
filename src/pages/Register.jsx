@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const Register = () => {
   const [form, setForm] = useState({
@@ -10,58 +11,54 @@ const Register = () => {
   });
 
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { register } = useAuth();
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+    setError('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (form.password !== form.confirmPassword) {
-      alert('❌ Les mots de passe ne correspondent pas !');
+      setError('❌ Les mots de passe ne correspondent pas !');
       return;
     }
 
-    try {
-      const response = await fetch('http://127.0.0.1:8000/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: form.username,
-          email: form.email,
-          password: form.password,
-        }),
-      });
+    // Utilisez la fonction register du contexte
+    const success = await register(form.username, form.email, form.password);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('❌ Erreur d’inscription:', errorData);
-        return;
-      }
-
-      const data = await response.json();
-      console.log(' Inscription réussie:', data);
-
-      // 👉 Redirection vers Login
+    if (success) {
+      console.log('✅ Inscription réussie');
       navigate('/login');
-    } catch (error) {
-      console.error('⚠️ Erreur serveur:', error);
+    } else {
+      setError("❌ Erreur lors de l'inscription");
     }
   };
 
   return (
     <div className="max-w-lg mx-auto mt-8 p-6 bg-white rounded-lg shadow-md">
       <h2 className="text-2xl font-bold text-center mb-4">Inscription</h2>
+
+      {/* Message d'erreur */}
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          {error}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Username */}
         <div>
-          <label className="block font-semibold">Nom d’utilisateur *</label>
+          <label className="block font-semibold">Nom d'utilisateur *</label>
           <input
             type="text"
             name="username"
-            placeholder="Votre nom d’utilisateur"
+            placeholder="Votre nom d'utilisateur"
             value={form.username}
             onChange={handleChange}
             required
@@ -99,7 +96,7 @@ const Register = () => {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="bg-gray-200 px-3 rounded-r"
+              className="bg-gray-200 px-3 rounded-r hover:bg-gray-300 transition-colors"
             >
               {showPassword ? '🙈' : '👁️'}
             </button>
@@ -111,25 +108,46 @@ const Register = () => {
           <label className="block font-semibold">
             Confirmer le mot de passe *
           </label>
-          <input
-            type={showPassword ? 'text' : 'password'}
-            name="confirmPassword"
-            placeholder="Répétez le mot de passe"
-            value={form.confirmPassword}
-            onChange={handleChange}
-            required
-            className="border p-2 w-full rounded"
-          />
+          <div className="flex">
+            <input
+              type={showConfirmPassword ? 'text' : 'password'}
+              name="confirmPassword"
+              placeholder="Répétez le mot de passe"
+              value={form.confirmPassword}
+              onChange={handleChange}
+              required
+              className="border p-2 w-full rounded-l"
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="bg-gray-200 px-3 rounded-r hover:bg-gray-300 transition-colors"
+            >
+              {showConfirmPassword ? '🙈' : '👁️'}
+            </button>
+          </div>
         </div>
 
         {/* Bouton */}
         <button
           type="submit"
-          className="bg-blue-600 text-white p-2 rounded w-full hover:bg-blue-700"
+          className="bg-blue-600 text-white p-2 rounded w-full hover:bg-blue-700 transition-colors"
         >
-          S’inscrire
+          S'inscrire
         </button>
       </form>
+
+      <div className="mt-4 text-center">
+        <p className="text-gray-600">
+          Déjà inscrit ?{' '}
+          <button
+            onClick={() => navigate('/login')}
+            className="text-blue-600 hover:underline"
+          >
+            Se connecter
+          </button>
+        </p>
+      </div>
     </div>
   );
 };

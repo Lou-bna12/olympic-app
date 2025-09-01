@@ -4,19 +4,18 @@ from passlib.context import CryptContext
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from fastapi.security import OAuth2PasswordBearer
+import os
+from dotenv import load_dotenv
 
 import models
-from database import get_db
-import schemas  # <-- On utilise maintenant UserCreate, UserOut, UserLogin
+from database import get_db, SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES 
+import schemas
+
 
 router = APIRouter()
 
 # Config sécurité
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-SECRET_KEY = "supersecretkey"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 1 jour
 
 # OAuth2
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -30,16 +29,18 @@ def verify_password(plain_password, hashed_password) -> bool:
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=15))
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
 
 # -----------------------
 # Routes
 # -----------------------
 
-# Register (création d’un utilisateur)
+# Register (création d'un utilisateur)
 @router.post("/register", response_model=schemas.UserOut)
 def register(request: schemas.UserCreate, db: Session = Depends(get_db)):
     existing_user = db.query(models.User).filter(models.User.email == request.email).first()
@@ -52,8 +53,7 @@ def register(request: schemas.UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
 
-    return new_user   # <-- grâce à UserOut, le mot de passe sera exclu
-
+    return new_user
 
 # Login
 @router.post("/login")
@@ -70,7 +70,6 @@ def login(request: schemas.UserLogin, db: Session = Depends(get_db)):
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
-
 # Obtenir infos utilisateur connecté
 @router.get("/me", response_model=schemas.UserOut)
 def read_users_me(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
@@ -86,4 +85,4 @@ def read_users_me(token: str = Depends(oauth2_scheme), db: Session = Depends(get
     if user is None:
         raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
 
-    return user   # <-- renvoyé sans mot de passe (grâce à UserOut)
+    return user

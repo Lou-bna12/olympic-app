@@ -6,6 +6,7 @@ const AuthContext = createContext();
 const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -14,6 +15,7 @@ const AuthProvider = ({ children }) => {
       fetchUser(token);
     } else {
       setLoading(false);
+      setIsAuthenticated(false);
     }
   }, []);
 
@@ -26,12 +28,17 @@ const AuthProvider = ({ children }) => {
         },
       });
       setUser(response.data);
-      localStorage.setItem('user', JSON.stringify(response.data)); // Stocker l'utilisateur
+      setIsAuthenticated(true);
+      localStorage.setItem('user', JSON.stringify(response.data));
     } catch (error) {
       console.error('❌ Erreur récupération profil:', error);
+      if (error.response?.status === 401) {
+        // Token invalide ou expiré
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
       setUser(null);
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      setIsAuthenticated(false);
     } finally {
       setLoading(false);
     }
@@ -46,15 +53,16 @@ const AuthProvider = ({ children }) => {
       });
       const { access_token } = response.data;
       localStorage.setItem('token', access_token);
-      await fetchUser(access_token); //Cette fonction met à jour l'état user
+      await fetchUser(access_token);
       return true;
     } catch (error) {
       console.error('❌ Erreur de connexion:', error);
+      setIsAuthenticated(false);
       return false;
     }
   };
 
-  // Inscription
+  // Inscription - AJOUT DE LA FONCTION REGISTER MANQUANTE
   const register = async (username, email, password) => {
     try {
       await axios.post('http://127.0.0.1:8000/auth/register', {
@@ -74,16 +82,26 @@ const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
+    setIsAuthenticated(false);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        isAuthenticated,
+        login,
+        register,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
 };
 
-//  Hook personnalisé pour utiliser facilement le contexte
+// Hook personnalisé pour utiliser facilement le contexte
 export const useAuth = () => {
   return React.useContext(AuthContext);
 };

@@ -30,7 +30,7 @@ const Reservation = () => {
     e.preventDefault();
 
     const token = localStorage.getItem('token');
-    const user = JSON.parse(localStorage.getItem('user')); // Récupérer l'utilisateur
+    const user = JSON.parse(localStorage.getItem('user'));
 
     if (!user || !user.email) {
       alert('Erreur: Utilisateur non connecté ❌');
@@ -53,7 +53,7 @@ const Reservation = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`, //  obligatoire
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(data),
       });
@@ -102,7 +102,6 @@ const Reservation = () => {
             className="w-full border rounded-lg px-3 py-2"
             required
           />
-
           <input
             type="date"
             name="date"
@@ -111,7 +110,6 @@ const Reservation = () => {
             className="w-full border rounded-lg px-3 py-2"
             required
           />
-
           <select
             name="offre"
             value={formData.offre}
@@ -124,7 +122,6 @@ const Reservation = () => {
             <option value="duo">Duo - 50 €</option>
             <option value="familiale">Familiale - 150 €</option>
           </select>
-
           <input
             type="number"
             name="quantity"
@@ -134,11 +131,9 @@ const Reservation = () => {
             className="w-full border rounded-lg px-3 py-2"
             required
           />
-
           <p className="text-lg font-semibold text-gray-700">
             Total à payer : {totalPrice} €
           </p>
-
           <button
             type="submit"
             className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl mt-4 transition duration-200 shadow-md"
