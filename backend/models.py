@@ -14,10 +14,10 @@ class Reservation(Base):
     __tablename__ = "reservations"
 
     id = Column(Integer, primary_key=True, index=True)
-    nom = Column(String, nullable=False)
-    prenom = Column(String, nullable=False)
+    username = Column(String, nullable=False)
     email = Column(String, nullable=False)
-    date = Column(Date, nullable=False)
-    offer = Column(String, nullable=False)
+    date = Column(Date, nullable=False)   # ✅ DATE au lieu de TIMESTAMP
+    offre = Column(String, nullable=False)
     quantity = Column(Integer, nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"))
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+

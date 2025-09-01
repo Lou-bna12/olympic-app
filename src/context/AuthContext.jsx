@@ -7,7 +7,6 @@ const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Vérifie si un token existe dans localStorage au démarrage
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
@@ -27,10 +26,12 @@ const AuthProvider = ({ children }) => {
         },
       });
       setUser(response.data);
+      localStorage.setItem('user', JSON.stringify(response.data)); // Stocker l'utilisateur
     } catch (error) {
       console.error('❌ Erreur récupération profil:', error);
       setUser(null);
       localStorage.removeItem('token');
+      localStorage.removeItem('user');
     } finally {
       setLoading(false);
     }
@@ -45,7 +46,7 @@ const AuthProvider = ({ children }) => {
       });
       const { access_token } = response.data;
       localStorage.setItem('token', access_token);
-      await fetchUser(access_token);
+      await fetchUser(access_token); //Cette fonction met à jour l'état user
       return true;
     } catch (error) {
       console.error('❌ Erreur de connexion:', error);
@@ -63,7 +64,7 @@ const AuthProvider = ({ children }) => {
       });
       return true;
     } catch (error) {
-      console.error('❌ Erreur d’inscription:', error.response?.data || error);
+      console.error("❌ Erreur d'inscription:", error.response?.data || error);
       return false;
     }
   };
@@ -71,6 +72,7 @@ const AuthProvider = ({ children }) => {
   // Déconnexion
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
     setUser(null);
   };
 
@@ -81,7 +83,7 @@ const AuthProvider = ({ children }) => {
   );
 };
 
-// ✅ Hook personnalisé pour utiliser facilement le contexte
+//  Hook personnalisé pour utiliser facilement le contexte
 export const useAuth = () => {
   return React.useContext(AuthContext);
 };

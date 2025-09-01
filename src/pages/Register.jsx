@@ -42,7 +42,7 @@ const Register = () => {
       }
 
       const data = await response.json();
-      console.log('✅ Inscription réussie:', data);
+      console.log(' Inscription réussie:', data);
 
       // 👉 Redirection vers Login
       navigate('/login');
@@ -53,9 +53,7 @@ const Register = () => {
 
   return (
     <div className="max-w-lg mx-auto mt-8 p-6 bg-white rounded-lg shadow-md">
-      <h2 className="text-2xl font-bold text-center mb-4">
-        🎟️ Inscription Jeux Olympiques
-      </h2>
+      <h2 className="text-2xl font-bold text-center mb-4">Inscription</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Username */}
         <div>

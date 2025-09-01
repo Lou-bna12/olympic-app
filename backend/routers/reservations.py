@@ -6,6 +6,7 @@ from typing import List
 import models
 from jose import JWTError, jwt
 from fastapi.security import OAuth2PasswordBearer
+from datetime import datetime
 
 # même clé que dans auth.py
 SECRET_KEY = "supersecretkey"
@@ -17,10 +18,10 @@ router = APIRouter()
 
 # Schéma Pydantic
 class ReservationRequest(BaseModel):
-    nom: str
-    prenom: str
+    username: str
+    email: str
     date: str
-    offer: str
+    offre: str
     quantity: int
 
 
@@ -46,12 +47,17 @@ def create_reservation(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    try:
+        
+        parsed_date = datetime.strptime(request.date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Format de date invalide (attendu: YYYY-MM-DD)")
+
     reservation = models.Reservation(
-        nom=request.nom,
-        prenom=request.prenom,
-        email=current_user.email,  # récupéré automatiquement
-        date=request.date,
-        offer=request.offer,
+        username=request.username,
+        email=request.email,
+        date=parsed_date,
+        offre=request.offre,
         quantity=request.quantity,
         user_id=current_user.id,
     )
@@ -61,20 +67,27 @@ def create_reservation(
     return {"message": "Réservation créée avec succès 🎉", "id": reservation.id}
 
 
+
 @router.get("/me", response_model=List[dict])
 def get_my_reservations(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    reservations = db.query(models.Reservation).filter(models.Reservation.user_id == current_user.id).all()
+    print(f"🔍 User connecté: {current_user.email} (ID: {current_user.id})")  #  LOG
+    
+    reservations = db.query(models.Reservation).filter(
+        models.Reservation.user_id == current_user.id
+    ).all()
+    
+    print(f"📋 Réservations trouvées: {len(reservations)}")  #  LOG
+    
     return [
         {
             "id": r.id,
-            "nom": r.nom,
-            "prenom": r.prenom,
+            "username": r.username,
             "email": r.email,
-            "date": r.date,
-            "offer": r.offer,
+            "date": r.date.isoformat() if r.date else None,
+            "offre": r.offre,
             "quantity": r.quantity,
         }
         for r in reservations

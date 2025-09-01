@@ -11,15 +11,14 @@ const Reservation = () => {
   };
 
   const [formData, setFormData] = useState({
-    nom: '',
-    prenom: '',
+    username: '',
     date: '',
-    offer: '',
+    offre: '',
     quantity: 1,
   });
 
-  const totalPrice = formData.offer
-    ? PRICES[formData.offer] * formData.quantity
+  const totalPrice = formData.offre
+    ? PRICES[formData.offre] * formData.quantity
     : 0;
 
   const handleChange = (e) => {
@@ -30,39 +29,51 @@ const Reservation = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    try {
-      const token = localStorage.getItem('token'); // récupéré au login
-      if (!token) {
-        alert('Vous devez être connecté pour réserver !');
-        navigate('/login');
-        return;
-      }
+    const token = localStorage.getItem('token');
+    const user = JSON.parse(localStorage.getItem('user')); // Récupérer l'utilisateur
 
+    if (!user || !user.email) {
+      alert('Erreur: Utilisateur non connecté ❌');
+      navigate('/login');
+      return;
+    }
+
+    const data = {
+      username: formData.username,
+      email: user.email,
+      date: formData.date,
+      offre: formData.offre,
+      quantity: formData.quantity,
+    };
+
+    console.log('📤 Données envoyées:', data);
+
+    try {
       const response = await fetch('http://127.0.0.1:8000/reservations/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${token}`, //  obligatoire
         },
-        body: JSON.stringify({
-          nom: formData.nom,
-          prenom: formData.prenom,
-          date: formData.date,
-          offer: formData.offer,
-          quantity: Number(formData.quantity),
-        }),
+        body: JSON.stringify(data),
       });
 
-      if (response.ok) {
-        alert('Réservation réussie 🎉');
-        navigate('/dashboard');
-      } else {
+      if (!response.ok) {
         const errorData = await response.json();
-        console.error('Erreur réservation:', errorData);
-        alert('Erreur lors de la réservation ❌');
+        console.error('❌ Erreur API:', errorData);
+        alert(
+          'Erreur lors de la réservation ❌: ' +
+            (errorData.detail || 'Erreur inconnue')
+        );
+        return;
       }
+
+      const result = await response.json();
+      console.log('✅ Réservation réussie:', result);
+      alert('Réservation réussie 🎉');
+      navigate('/dashboard');
     } catch (err) {
-      console.error('Erreur réseau:', err);
+      console.error('⚡ Erreur réseau:', err);
       alert('Erreur réseau ❌');
     }
   };
@@ -84,22 +95,14 @@ const Reservation = () => {
         <form className="space-y-4" onSubmit={handleSubmit}>
           <input
             type="text"
-            name="nom"
-            value={formData.nom}
+            name="username"
+            value={formData.username}
             onChange={handleChange}
-            placeholder="Nom"
+            placeholder="Nom d'utilisateur"
             className="w-full border rounded-lg px-3 py-2"
             required
           />
-          <input
-            type="text"
-            name="prenom"
-            value={formData.prenom}
-            onChange={handleChange}
-            placeholder="Prénom"
-            className="w-full border rounded-lg px-3 py-2"
-            required
-          />
+
           <input
             type="date"
             name="date"
@@ -108,9 +111,10 @@ const Reservation = () => {
             className="w-full border rounded-lg px-3 py-2"
             required
           />
+
           <select
-            name="offer"
-            value={formData.offer}
+            name="offre"
+            value={formData.offre}
             onChange={handleChange}
             className="w-full border rounded-lg px-3 py-2"
             required
@@ -120,6 +124,7 @@ const Reservation = () => {
             <option value="duo">Duo - 50 €</option>
             <option value="familiale">Familiale - 150 €</option>
           </select>
+
           <input
             type="number"
             name="quantity"

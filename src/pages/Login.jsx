@@ -1,48 +1,53 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
   const [form, setForm] = useState({
     email: '',
     password: '',
   });
-
+  const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAuth(); // pour écupérer la fonction login du contexte
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+    setError(''); // Effacer les erreurs quand l'utilisateur tape
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+
     try {
-      const response = await fetch('http://127.0.0.1:8000/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
+      //  Utiliser la fonction login du contexte AuthContext
+      const success = await login(form.email, form.password);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('❌ Erreur de connexion:', errorData);
-        return;
+      if (success) {
+        console.log('✅ Connexion réussie via AuthContext');
+        navigate('/dashboard'); // Redirection après connexion réussie
+      } else {
+        setError('Email ou mot de passe incorrect');
       }
-
-      const data = await response.json();
-      console.log('✅ Connexion réussie:', data);
-      localStorage.setItem('token', data.access_token);
-
-      // 👉 Redirection vers Dashboard
-      navigate('/dashboard');
     } catch (error) {
       console.error('⚠️ Erreur serveur:', error);
+      setError('Erreur de connexion au serveur');
     }
   };
 
   return (
     <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-md">
-      <h2 className="text-2xl font-bold text-center mb-4">🔑 Connexion</h2>
+      <h2 className="text-2xl font-bold text-center mb-4">Connexion</h2>
+
+      {/* Message d'erreur */}
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          {error}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Email */}
         <div>

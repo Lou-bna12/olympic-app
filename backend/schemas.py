@@ -1,21 +1,52 @@
 from pydantic import BaseModel, EmailStr
+from datetime import date  # pour gérer les vraies dates
 
-# Schéma pour la création d’utilisateur
+
+# ---------------------------
+# Utilisateurs
+# ---------------------------
+
+# Création d’utilisateur (register)
 class UserCreate(BaseModel):
     username: str
     email: EmailStr
     password: str
 
-# Schéma pour afficher un utilisateur (sans mot de passe)
+
+# Affichage utilisateur (sans mot de passe)
 class UserOut(BaseModel):
     id: int
     username: str
     email: EmailStr
 
     class Config:
-        from_attributes = True  # anciennement orm_mode
+        from_attributes = True  # anciennement orm_mode (permet conversion depuis SQLAlchemy)
 
-# Schéma pour le login
+
+# Login (connexion)
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
+
+# ---------------------------
+# Réservations
+# ---------------------------
+
+class ReservationBase(BaseModel):
+    username: str
+    date: date       # Pydantic valide directement (format YYYY-MM-DD)
+    offre: str
+    quantity: int
+
+
+class ReservationCreate(ReservationBase):
+    pass
+
+
+class ReservationOut(ReservationBase):
+    id: int
+    email: str
+
+    class Config:
+        from_attributes = True
