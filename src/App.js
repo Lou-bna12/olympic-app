@@ -1,7 +1,8 @@
 // src/App.js
 import React, { useEffect, useState } from 'react';
-import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import { Routes, Route, useLocation, Navigate, Link } from 'react-router-dom';
 import MesReservations from './components/MesReservations';
+import AdminRoute from './components/AdminRoute'; // ← IMPORT AJOUTÉ
 
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -15,9 +16,19 @@ import Admin from './pages/Admin';
 import Logout from './components/Logout';
 
 import Header from './components/Header';
-import Footer from './components/Footer'; // import Footer
+import Footer from './components/Footer';
 
 import { useAuth } from './context/AuthContext';
+
+// --- Composant Indicateur de Chargement ---
+function IndicateurChargement() {
+  return (
+    <div className="flex justify-center items-center h-64">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      <span className="ml-3">Chargement...</span>
+    </div>
+  );
+}
 
 // --- Wrapper pour protéger les routes ---
 function RequireAuth({ children }) {
@@ -25,7 +36,7 @@ function RequireAuth({ children }) {
   const location = useLocation();
 
   if (loading) {
-    return <p className="text-center mt-10">⏳ Vérification en cours...</p>;
+    return <IndicateurChargement />;
   }
 
   if (!user) {
@@ -36,38 +47,53 @@ function RequireAuth({ children }) {
   return children;
 }
 
-// --- Wrapper pour les routes admin ---
-function RequireAdmin({ children }) {
-  const { user, loading } = useAuth();
-  const location = useLocation();
-
-  if (loading) {
-    return <p className="text-center mt-10">⏳ Vérification en cours...</p>;
-  }
-
-  if (!user) {
-    const next = encodeURIComponent(location.pathname + location.search);
-    return <Navigate to={`/login?next=${next}`} replace />;
-  }
-
-  // ⚠️ Ici tu pourras vérifier si user.role === "admin"
-  return <Navigate to="/dashboard" replace />;
+// --- Page 404 personnalisée ---
+function PageNotFound() {
+  return (
+    <div className="text-center py-20">
+      <h1 className="text-2xl font-bold">404 - Page non trouvée</h1>
+      <p className="mt-4">La page que vous recherchez n'existe pas.</p>
+      <Link to="/" className="text-blue-500 hover:underline mt-4 inline-block">
+        Retour à l'accueil
+      </Link>
+    </div>
+  );
 }
 
 const App = () => {
   const location = useLocation();
   const [backendStatus, setBackendStatus] = useState('Vérification...');
 
-  // Test API backend
+  // Test API backend avec gestion d'erreurs améliorée
   useEffect(() => {
-    fetch('http://127.0.0.1:8000/ping')
-      .then((res) => res.json())
-      .then((data) => setBackendStatus(data.message))
-      .catch(() => setBackendStatus('Erreur connexion API'));
+    const verifierBackend = async () => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+        const response = await fetch('http://127.0.0.1:8000/ping', {
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`Erreur HTTP: ${response.status}`);
+        }
+
+        const data = await response.json();
+        setBackendStatus(data.message);
+      } catch (error) {
+        setBackendStatus('Erreur de connexion API');
+        console.error('Erreur backend:', error);
+      }
+    };
+
+    verifierBackend();
   }, []);
 
   // Les pages où on cache le footer
-  const hideFooterRoutes = [
+  const routesSansFooter = [
     '/login',
     '/register',
     '/forgot-password',
@@ -75,16 +101,24 @@ const App = () => {
     '/logout',
   ];
 
+  const afficherFooter = !routesSansFooter.includes(location.pathname);
+
   return (
     <>
       <Header />
 
-      {/* Status backend */}
-      <div
-        style={{ textAlign: 'center', padding: '10px', background: '#f1f1f1' }}
-      >
-        <strong>Backend :</strong> {backendStatus}
-      </div>
+      {/* Status backend - visible seulement en développement */}
+      {process.env.NODE_ENV === 'development' && (
+        <div
+          style={{
+            textAlign: 'center',
+            padding: '10px',
+            background: '#f1f1f1',
+          }}
+        >
+          <strong>Backend :</strong> {backendStatus}
+        </div>
+      )}
 
       <Routes>
         {/* Routes publiques */}
@@ -96,28 +130,12 @@ const App = () => {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
 
-        {/* Routes protégées */}
+        {/* Routes protégées (utilisateur connecté) */}
         <Route
           path="/dashboard"
           element={
             <RequireAuth>
               <Dashboard />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/admin/*"
-          element={
-            <RequireAdmin>
-              <Admin />
-            </RequireAdmin>
-          }
-        />
-        <Route
-          path="/logout"
-          element={
-            <RequireAuth>
-              <Logout />
             </RequireAuth>
           }
         />
@@ -129,13 +147,31 @@ const App = () => {
             </RequireAuth>
           }
         />
+        <Route
+          path="/logout"
+          element={
+            <RequireAuth>
+              <Logout />
+            </RequireAuth>
+          }
+        />
 
-        {/* Redirection 404 */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* Routes admin (utilisateur admin) */}
+        <Route
+          path="/admin/*"
+          element={
+            <AdminRoute>
+              <Admin />
+            </AdminRoute>
+          }
+        />
+
+        {/* Page 404 personnalisée */}
+        <Route path="*" element={<PageNotFound />} />
       </Routes>
 
-      {/* ✅ Footer affiché sauf sur certaines pages */}
-      {!hideFooterRoutes.includes(location.pathname) && <Footer />}
+      {/* Footer affiché sauf sur certaines pages */}
+      {afficherFooter && <Footer />}
     </>
   );
 };

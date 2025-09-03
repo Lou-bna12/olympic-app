@@ -23,17 +23,16 @@ api.interceptors.request.use((config) => {
 export async function login(email, password) {
   const response = await api.post('/auth/login', {
     email,
-    password, // ✅ champ attendu par le backend
+    password,
   });
   return response.data;
 }
 
-export async function register(nom, prenom, email, password) {
+export async function register(username, email, password) {
   const response = await api.post('/auth/register', {
-    nom,
-    prenom,
+    username,
     email,
-    password, // ✅ champ attendu par le backend
+    password,
   });
   return response.data;
 }

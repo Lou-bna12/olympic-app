@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [stats, setStats] = useState({
     total_reservations: 0,
     next_reservation_date: null,
@@ -10,8 +11,16 @@ const Dashboard = () => {
     active_reservations: 0,
   });
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
+    // Rediriger vers l'admin si l'utilisateur est admin
+    if (isAdmin) {
+      console.log('🔄 Redirecting admin to /admin');
+      navigate('/admin');
+      return; // Arrêter l'exécution ici pour éviter de fetch les stats
+    }
+
     const fetchStats = async () => {
       try {
         const token = localStorage.getItem('token');
@@ -42,7 +51,19 @@ const Dashboard = () => {
     };
 
     fetchStats();
-  }, []);
+  }, [isAdmin, navigate]);
+
+  // Si l'utilisateur est admin, on affiche rien car redirection
+  if (isAdmin) {
+    return (
+      <div className="min-h-screen bg-gray-100 py-8 px-4 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p>Redirection vers l'interface administrateur...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

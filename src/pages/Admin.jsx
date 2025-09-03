@@ -11,9 +11,17 @@ export default function Admin() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
+  // DEBUG TEMPORAIRE
+  console.log('=== DEBUG ADMIN ===');
+  console.log('User:', user);
+  console.log('isAdmin from context:', isAdmin);
+  console.log('User is_admin:', user?.is_admin);
+
   useEffect(() => {
-    fetchAdminData();
-  }, []);
+    if (isAdmin) {
+      fetchAdminData();
+    }
+  }, [isAdmin]);
 
   const fetchAdminData = async () => {
     try {
@@ -86,7 +94,10 @@ export default function Admin() {
     return matchesSearch;
   });
 
-  if (!isAdmin) return <Navigate to="/dashboard" replace />;
+  if (!isAdmin) {
+    console.log('❌ REDIRECTION vers /dashboard - Utilisateur non admin');
+    return <Navigate to="/dashboard" replace />;
+  }
 
   if (loading) {
     return (

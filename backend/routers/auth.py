@@ -1,3 +1,4 @@
+# auth.py - CORRIGÉ
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
@@ -10,7 +11,6 @@ from dotenv import load_dotenv
 import models
 from database import get_db, SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES 
 import schemas
-
 
 router = APIRouter()
 
@@ -58,19 +58,25 @@ def register(request: schemas.UserCreate, db: Session = Depends(get_db)):
 # Login
 @router.post("/login")
 def login(request: schemas.UserLogin, db: Session = Depends(get_db)):
+    print(f"Tentative de connexion: {request.email}")  # Debug
     user = db.query(models.User).filter(models.User.email == request.email).first()
+    
     if not user:
+        print(" Email non trouvé")
         raise HTTPException(status_code=400, detail="Email incorrect")
+    
     if not verify_password(request.password, user.password):
+        print(" Mot de passe incorrect")
         raise HTTPException(status_code=400, detail="Mot de passe incorrect")
-
+    
+    print("Connexion réussie")
     access_token = create_access_token(
         data={"sub": user.email}, 
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
-# Obtenir infos utilisateur connecté
+# Obtenir infos utilisateur connecté 
 @router.get("/me", response_model=schemas.UserOut)
 def read_users_me(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     try:
@@ -85,4 +91,7 @@ def read_users_me(token: str = Depends(oauth2_scheme), db: Session = Depends(get
     if user is None:
         raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
 
+    # DEBUG: Afficher les données de l'utilisateur
+    print(f"User data for /me: id={user.id}, email={user.email}, is_admin={user.is_admin}")
+    
     return user

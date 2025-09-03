@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 
 const AuthContext = createContext();
@@ -7,40 +7,42 @@ const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
+
+  // Supprimer l'état isAdmin séparé et le calculer à partir de user
+  const isAdmin = user?.is_admin === true;
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      console.log('📌 Token trouvé dans localStorage:', token);
       fetchUser(token);
     } else {
       setLoading(false);
+      setAuthReady(true);
       setIsAuthenticated(false);
     }
   }, []);
 
-  // Fonction pour récupérer le profil utilisateur
   const fetchUser = async (token) => {
     try {
       const response = await axios.get('http://127.0.0.1:8000/auth/me', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
+
+      console.log('User data from API:', response.data); // Debug
+
       setUser(response.data);
       setIsAuthenticated(true);
       localStorage.setItem('user', JSON.stringify(response.data));
     } catch (error) {
-      console.error('❌ Erreur récupération profil:', error);
-      if (error.response?.status === 401) {
-        // Token invalide ou expiré
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-      }
+      console.error('Erreur récupération profil:', error);
       setUser(null);
       setIsAuthenticated(false);
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
     } finally {
       setLoading(false);
+      setAuthReady(true);
     }
   };
 
@@ -56,14 +58,15 @@ const AuthProvider = ({ children }) => {
       await fetchUser(access_token);
       return true;
     } catch (error) {
-      console.error('❌ Erreur de connexion:', error);
+      console.error('Erreur de connexion:', error);
       setIsAuthenticated(false);
       return false;
     }
   };
 
-  // Inscription - AJOUT DE LA FONCTION REGISTER MANQUANTE
+  // Inscription
   const register = async (username, email, password) => {
+    // SUPPRIMER le paramètre role
     try {
       await axios.post('http://127.0.0.1:8000/auth/register', {
         username,
@@ -72,7 +75,7 @@ const AuthProvider = ({ children }) => {
       });
       return true;
     } catch (error) {
-      console.error("❌ Erreur d'inscription:", error.response?.data || error);
+      console.error("Erreur d'inscription:", error.response?.data || error);
       return false;
     }
   };
@@ -91,6 +94,8 @@ const AuthProvider = ({ children }) => {
         user,
         loading,
         isAuthenticated,
+        isAdmin, // Maintenant calculé à partir de user
+        authReady,
         login,
         register,
         logout,
@@ -101,9 +106,13 @@ const AuthProvider = ({ children }) => {
   );
 };
 
-// Hook personnalisé pour utiliser facilement le contexte
+// Hook personnalisé
 export const useAuth = () => {
-  return React.useContext(AuthContext);
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 };
 
 export { AuthContext, AuthProvider };

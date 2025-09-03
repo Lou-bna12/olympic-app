@@ -14,14 +14,14 @@ from pydantic import BaseModel
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 router = APIRouter()
 
-# Vérifier si l'utilisateur est admin
+# Vérifier si l'utilisateur est admin 
 def get_admin_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
         user = db.query(models.User).filter(models.User.email == email).first()
 
-        if not user or not getattr(user, 'is_admin', False):
+        if not user or not user.is_admin:
             raise HTTPException(status_code=403, detail="Accès administrateur requis")
         return user
     except JWTError:
@@ -45,7 +45,7 @@ def get_admin_stats(
     ).count()
     total_users = db.query(models.User).count()
     
-    # Calcul du revenue (exemple)
+    # Calcul du revenue
     revenue = db.query(models.Reservation).filter(
         models.Reservation.status == "approved"
     ).count() * 70
@@ -76,26 +76,6 @@ def get_all_reservations(
         for r in reservations
     ]
 
-@router.post("/reservations/{reservation_id}/approve")
-def approve_reservation(
-    reservation_id: int,
-    db: Session = Depends(get_db),
-    admin_user: models.User = Depends(get_admin_user)
-):
-    reservation = db.query(models.Reservation).filter(
-        models.Reservation.id == reservation_id
-    ).first()
-    
-    if not reservation:
-        raise HTTPException(status_code=404, detail="Réservation non trouvée")
-    
-    # Mettre à jour le statut
-    reservation.status = "approved"
-    db.commit()
-    db.refresh(reservation)
-    
-    return {"message": "Réservation approuvée"}
-
 @router.get("/reservations/{reservation_id}/qrcode")
 def generate_qrcode(
     reservation_id: int,
@@ -109,8 +89,10 @@ def generate_qrcode(
     if not reservation:
         raise HTTPException(status_code=404, detail="Réservation non trouvée")
     
+    # Création des données sécurisées pour le QR code
+    qr_data = f"OLYMPIC2024:{reservation.id}:{reservation.user_id}:{reservation.email}:{reservation.date}"
+    
     # Création du QR code
-    qr_data = f"RESERVATION:{reservation_id}:{reservation.email}:{reservation.date}"
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
     qr.add_data(qr_data)
     qr.make(fit=True)

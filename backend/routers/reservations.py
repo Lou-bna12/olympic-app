@@ -90,7 +90,6 @@ def get_reservation_stats(
     
     total_reservations = len(reservations)
     
-    
     today = datetime.now().date()
     upcoming_reservations = [
         r for r in reservations 
