@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+import { FaArrowLeft, FaPlus, FaList } from 'react-icons/fa';
 
 const Dashboard = () => {
   const { user, isAdmin } = useAuth();
@@ -14,7 +15,6 @@ const Dashboard = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Rediriger vers l'admin si l'utilisateur est admin
     if (isAdmin) {
       console.log('🔄 Redirecting admin to /admin');
       navigate('/admin');
@@ -53,7 +53,6 @@ const Dashboard = () => {
     fetchStats();
   }, [isAdmin, navigate]);
 
-  // Si l'utilisateur est admin, on affiche rien car redirection
   if (isAdmin) {
     return (
       <div className="min-h-screen bg-gray-100 py-8 px-4 flex items-center justify-center">
@@ -76,7 +75,16 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gray-100 py-8 px-4">
       <div className="max-w-4xl mx-auto">
-        {/*  Message de Bienvenue */}
+        {/* Bouton de retour */}
+        <Link
+          to="/mes-reservations"
+          className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-6 transition duration-200"
+        >
+          <FaArrowLeft className="mr-2" />
+          Retour à mes réservations
+        </Link>
+
+        {/* Message de Bienvenue */}
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">
             Bienvenue{user?.username ? `, ${user.username}` : ''} ! 👋
@@ -136,14 +144,16 @@ const Dashboard = () => {
           <div className="flex flex-wrap gap-4">
             <button
               onClick={() => navigate('/reservation')}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 flex items-center gap-2 transition duration-200"
             >
+              <FaPlus className="w-4 h-4" />
               Nouvelle réservation
             </button>
             <button
               onClick={() => navigate('/mes-reservations')}
-              className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700"
+              className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 flex items-center gap-2 transition duration-200"
             >
+              <FaList className="w-4 h-4" />
               Voir mes réservations
             </button>
           </div>
