@@ -1,39 +1,25 @@
-from fastapi import Depends, HTTPException
-from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.orm import Session
-from database import get_db
-from models import User
-import bcrypt, jwt
+import secrets
+import qrcode
+from io import BytesIO
+import base64
 
-SECRET_KEY = "secret"  # 🔑 change ça en variable d'env
-ALGORITHM = "HS256"
+def generate_random_key(length=16):
+    """Génère une clé aléatoire"""
+    return secrets.token_hex(length)
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
-
-def hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-
-def verify_password(password: str, hashed: str) -> bool:
-    return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
-
-def create_access_token(email: str):
-    payload = {"sub": email}
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
-
-def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
-):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email = payload.get("sub")
-        if email is None:
-            raise HTTPException(status_code=401, detail="Token invalide")
-    except jwt.PyJWTError:
-        raise HTTPException(status_code=401, detail="Token invalide")
-
-    user = db.query(User).filter(User.email == email).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="Utilisateur introuvable")
-
-    return user
+def generate_qr_code(data):
+    """Génère un QR code en base64"""
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(data)
+    qr.make(fit=True)
+    
+    img = qr.make_image(fill_color="black", back_color="white")
+    
+    buffered = BytesIO()
+    img.save(buffered, format="PNG")
+    return base64.b64encode(buffered.getvalue()).decode()

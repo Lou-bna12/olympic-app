@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from 'react'; // Retirez useEffect
 import { useNavigate } from 'react-router-dom';
 
 const Reservation = () => {
@@ -21,6 +21,8 @@ const Reservation = () => {
     formData.offre && PRICES[formData.offre]
       ? PRICES[formData.offre] * formData.quantity
       : 0;
+
+  // SUPPRIMEZ TOUTE LA FONCTION DE DÉBOGAGE ET LE USEEFFECT
 
   const handleChange = (e) => {
     const { name, value } = e.target;

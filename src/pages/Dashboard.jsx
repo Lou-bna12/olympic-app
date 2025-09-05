@@ -87,7 +87,7 @@ const Dashboard = () => {
         {/* Message de Bienvenue */}
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            Bienvenue{user?.username ? `, ${user.username}` : ''} ! 👋
+            Bienvenue{user?.username ? `, ${user.username}` : ''} !
           </h1>
           <p className="text-gray-600">
             Gérez vos réservations pour les Jeux Olympiques 2024

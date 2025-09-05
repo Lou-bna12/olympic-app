@@ -4,11 +4,9 @@ from passlib.context import CryptContext
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from fastapi.security import OAuth2PasswordBearer
-import os
-from dotenv import load_dotenv
 
-import models
 from database import get_db, SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES 
+from models import User
 import schemas
 
 router = APIRouter()
@@ -16,10 +14,10 @@ router = APIRouter()
 # Config sécurité
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# OAuth2
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
-# Utils
+
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
@@ -35,7 +33,6 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-# FONCTION MANQUANTE - AJOUTEZ CELLE-CI
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -45,25 +42,24 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     except JWTError:
         raise HTTPException(status_code=401, detail="Token invalide")
 
-    user = db.query(models.User).filter(models.User.email == email).first()
+    user = db.query(User).filter(User.email == email).first()
     if user is None:
         raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
     
     return user
 
-# -----------------------
 # Routes
-# -----------------------
+
 
 # Register (création d'un utilisateur)
 @router.post("/register", response_model=schemas.UserOut)
 def register(request: schemas.UserCreate, db: Session = Depends(get_db)):
-    existing_user = db.query(models.User).filter(models.User.email == request.email).first()
+    existing_user = db.query(User).filter(User.email == request.email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Cet email est déjà utilisé")
 
     hashed_pw = hash_password(request.password)
-    new_user = models.User(username=request.username, email=request.email, password=hashed_pw)
+    new_user = User(username=request.username, email=request.email, password=hashed_pw)
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
@@ -73,15 +69,15 @@ def register(request: schemas.UserCreate, db: Session = Depends(get_db)):
 # Login
 @router.post("/login")
 def login(request: schemas.UserLogin, db: Session = Depends(get_db)):
-    print(f"Tentative de connexion: {request.email}")  # Debug
-    user = db.query(models.User).filter(models.User.email == request.email).first()
+    print(f"Tentative de connexion: {request.email}")
+    user = db.query(User).filter(User.email == request.email).first()
     
     if not user:
-        print(" Email non trouvé")
+        print("Email non trouvé")
         raise HTTPException(status_code=400, detail="Email incorrect")
     
     if not verify_password(request.password, user.password):
-        print(" Mot de passe incorrect")
+        print("Mot de passe incorrect")
         raise HTTPException(status_code=400, detail="Mot de passe incorrect")
     
     print("Connexion réussie")
@@ -93,20 +89,6 @@ def login(request: schemas.UserLogin, db: Session = Depends(get_db)):
 
 # Obtenir infos utilisateur connecté 
 @router.get("/me", response_model=schemas.UserOut)
-def read_users_me(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
-            raise HTTPException(status_code=401, detail="Token invalide")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Token invalide")
-
-    user = db.query(models.User).filter(models.User.email == email).first()
-    if user is None:
-        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
-
-    # Afficher les données de l'utilisateur
-    print(f"User data for /me: id={user.id}, email={user.email}, is_admin={user.is_admin}")
-    
-    return user
+def read_users_me(current_user: User = Depends(get_current_user)):
+    print(f"User data for /me: id={current_user.id}, email={current_user.email}, is_admin={current_user.is_admin}")
+    return current_user

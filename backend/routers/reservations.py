@@ -6,7 +6,8 @@ from typing import List, Optional
 import models
 from jose import JWTError, jwt
 from fastapi.security import OAuth2PasswordBearer
-from datetime import datetime, date
+from datetime import datetime
+from datetime import date as date_type  
 import os
 from dotenv import load_dotenv
 import qrcode
@@ -24,14 +25,14 @@ router = APIRouter()
 class ReservationRequest(BaseModel):
     username: str
     email: str
-    date: date  
+    date: date_type  
     offre: str
     quantity: int
 
 class ReservationUpdate(BaseModel):
     username: Optional[str] = None
     email: Optional[str] = None
-    date: Optional[date] = None
+    date: Optional[date_type] = None  
     offre: Optional[str] = None
     quantity: Optional[int] = None
 
@@ -50,7 +51,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
     return user
 
-@router.post("/", response_model=dict)
+@router.post("", response_model=dict)
 def create_reservation(
     request: ReservationRequest,
     db: Session = Depends(get_db),
