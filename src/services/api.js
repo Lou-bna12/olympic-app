@@ -5,26 +5,19 @@ const API_URL = 'http://127.0.0.1:8000';
 // --- Axios instance ---
 const api = axios.create({
   baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { 'Content-Type': 'application/json' },
 });
 
-// --- Intercepteur pour ajouter le token ---
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// --- Gestion des erreurs d'authentification ---
 api.interceptors.response.use(
-  (response) => response,
+  (res) => res,
   (error) => {
     if (error.response?.status === 401) {
-      // Token expiré ou invalide
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login?session=expired';
@@ -33,73 +26,77 @@ api.interceptors.response.use(
   }
 );
 
-// --- Fonctions spécifiques Auth ---
+//  Auth
 export async function login(email, password) {
-  const response = await api.post('/auth/login', {
-    email,
-    password,
-  });
-  return response.data;
+  const { data } = await api.post('/auth/login', { email, password });
+  return data;
 }
 
 export async function register(username, email, password) {
-  const response = await api.post('/auth/register', {
+  const { data } = await api.post('/auth/register', {
     username,
     email,
     password,
   });
-  return response.data;
+  return data;
 }
 
 export const getProfile = async () => {
-  const response = await api.get('/auth/me');
-  return response.data;
+  const { data } = await api.get('/auth/me');
+  return data;
 };
 
-// --- Fonctions pour les réservations ---
 export async function getMyReservations() {
-  const response = await api.get('/reservations/me');
-  return response.data;
+  const { data } = await api.get('/reservations/me');
+  return data;
 }
 
 export async function createReservation(reservationData) {
-  const response = await api.post('/reservations', reservationData);
-  return response.data;
+  const { data } = await api.post('/reservations/', reservationData);
+  return data;
 }
 
-// --- Fonctions Admin ---
+//  Admin
 export async function getAdminStats() {
-  const response = await api.get('/admin/stats');
-  return response.data;
+  const { data } = await api.get('/admin/stats');
+  return data;
 }
 
 export async function getAllReservations() {
-  const response = await api.get('/admin/reservations/all');
-  return response.data;
+  const { data } = await api.get('/admin/reservations/all');
+  return data;
 }
 
 export async function approveReservation(reservationId) {
-  const response = await api.post(
+  const { data } = await api.post(
     `/admin/reservations/${reservationId}/approve`
   );
-  return response.data;
+  return data;
 }
 
 export async function rejectReservation(reservationId) {
-  const response = await api.post(
+  const { data } = await api.post(
     `/admin/reservations/${reservationId}/reject`
   );
-  return response.data;
+  return data;
 }
 
 export async function deleteReservation(reservationId) {
-  const response = await api.delete(`/admin/reservations/${reservationId}`);
-  return response.data;
+  const { data } = await api.delete(`/admin/reservations/${reservationId}`);
+  return data;
 }
 
 export async function generateQRCode(reservationId) {
-  const response = await api.get(`/admin/reservations/${reservationId}/qrcode`);
-  return response.data;
+  const { data } = await api.get(`/admin/reservations/${reservationId}/qrcode`);
+  return data;
+}
+
+export async function updateReservation(reservationId, updatedData) {
+  const { data } = await api.put(
+    `/admin/reservations/${reservationId}`,
+    updatedData
+  );
+  return data;
 }
 
 export default api;

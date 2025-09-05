@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import QRCodeModal from '../components/QRCodeModal';
+import {
+  getAdminStats,
+  getAllReservations,
+  approveReservation as apiApproveReservation,
+  rejectReservation as apiRejectReservation,
+  deleteReservation as apiDeleteReservation,
+  generateQRCode as apiGenerateQRCode,
+  updateReservation as apiUpdateReservation,
+} from '../services/api';
 
 const Admin = () => {
   const [reservations, setReservations] = useState([]);
@@ -27,66 +36,36 @@ const Admin = () => {
     return (prices[offre] || 70) * quantity;
   };
 
-  // Fonction pour les appels API avec authentification
-  const fetchWithAuth = async (url, options = {}) => {
-    const token = localStorage.getItem('token');
-
-    const headers = {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    };
-
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const response = await fetch(`http://127.0.0.1:8000${url}`, {
-      ...options,
-      headers,
-    });
-
-    if (response.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login?session=expired';
-      throw new Error('Session expirée');
-    }
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return response.json();
-  };
-
   // Charger les données
   useEffect(() => {
-    const fetchStats = async () => {
+    const loadData = async () => {
       try {
-        const data = await fetchWithAuth('/admin/stats');
-        setStats(data);
+        setLoading((prev) => ({ ...prev, reservations: true, stats: true }));
+        setError('');
+
+        const [statsData, reservationsData] = await Promise.all([
+          getAdminStats(),
+          getAllReservations(),
+        ]);
+
+        setStats(statsData);
+        setReservations(reservationsData);
       } catch (error) {
-        setError('Erreur lors du chargement des statistiques');
         console.error('Erreur:', error);
+        setError('Erreur lors du chargement des données administrateur');
+
+        // Redirection si non autorisé
+        if (error.response?.status === 403 || error.response?.status === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/login?error=admin_required';
+        }
       } finally {
-        setLoading((prev) => ({ ...prev, stats: false }));
+        setLoading((prev) => ({ ...prev, reservations: false, stats: false }));
       }
     };
 
-    const fetchReservations = async () => {
-      try {
-        const data = await fetchWithAuth('/admin/reservations/all');
-        setReservations(data);
-      } catch (error) {
-        setError('Erreur lors du chargement des réservations');
-        console.error('Erreur:', error);
-      } finally {
-        setLoading((prev) => ({ ...prev, reservations: false }));
-      }
-    };
-
-    fetchStats();
-    fetchReservations();
+    loadData();
   }, []);
 
   // Fonction pour générer le QR code
@@ -95,13 +74,11 @@ const Admin = () => {
     setError('');
 
     try {
-      const data = await fetchWithAuth(
-        `/admin/reservations/${reservationId}/qrcode`
-      );
+      const data = await apiGenerateQRCode(reservationId);
       setQrCodeData(data);
     } catch (error) {
-      setError('Erreur lors de la génération du QR code');
       console.error('Erreur:', error);
+      setError('Erreur lors de la génération du QR code');
     } finally {
       setLoading((prev) => ({ ...prev, qrCode: false }));
     }
@@ -114,15 +91,12 @@ const Admin = () => {
     setSuccessMessage('');
 
     try {
-      await fetchWithAuth(`/admin/reservations/${reservationId}/approve`, {
-        method: 'POST',
-      });
-
+      await apiApproveReservation(reservationId);
       setSuccessMessage('Réservation approuvée avec succès!');
       refreshData();
     } catch (error) {
-      setError("Erreur lors de l'approbation de la réservation");
       console.error('Erreur:', error);
+      setError("Erreur lors de l'approbation de la réservation");
     } finally {
       setLoading((prev) => ({ ...prev, approval: false }));
     }
@@ -135,15 +109,12 @@ const Admin = () => {
     setSuccessMessage('');
 
     try {
-      await fetchWithAuth(`/admin/reservations/${reservationId}/reject`, {
-        method: 'POST',
-      });
-
+      await apiRejectReservation(reservationId);
       setSuccessMessage('Réservation rejetée avec succès!');
       refreshData();
     } catch (error) {
-      setError('Erreur lors du rejet de la réservation');
       console.error('Erreur:', error);
+      setError('Erreur lors du rejet de la réservation');
     } finally {
       setLoading((prev) => ({ ...prev, approval: false }));
     }
@@ -162,38 +133,31 @@ const Admin = () => {
     setSuccessMessage('');
 
     try {
-      await fetchWithAuth(`/admin/reservations/${reservationId}`, {
-        method: 'DELETE',
-      });
-
+      await apiDeleteReservation(reservationId);
       setSuccessMessage('Réservation supprimée avec succès!');
       refreshData();
     } catch (error) {
-      setError('Erreur lors de la suppression de la réservation');
       console.error('Erreur:', error);
+      setError('Erreur lors de la suppression de la réservation');
     } finally {
       setLoading((prev) => ({ ...prev, delete: false }));
     }
   };
 
-  // Fonction pour modifier une réservation
+  // FONCTION MANQUANTE : Modification d'une réservation
   const updateReservation = async (reservationId, updatedData) => {
     setLoading((prev) => ({ ...prev, update: true }));
     setError('');
     setSuccessMessage('');
 
     try {
-      await fetchWithAuth(`/admin/reservations/${reservationId}`, {
-        method: 'PUT',
-        body: JSON.stringify(updatedData),
-      });
-
+      await apiUpdateReservation(reservationId, updatedData);
       setSuccessMessage('Réservation modifiée avec succès!');
       setEditingReservation(null);
       refreshData();
     } catch (error) {
-      setError('Erreur lors de la modification de la réservation');
       console.error('Erreur:', error);
+      setError('Erreur lors de la modification de la réservation');
     } finally {
       setLoading((prev) => ({ ...prev, update: false }));
     }
@@ -202,15 +166,20 @@ const Admin = () => {
   // Rafraîchir les données
   const refreshData = async () => {
     try {
+      setLoading((prev) => ({ ...prev, reservations: true, stats: true }));
+
       const [statsData, reservationsData] = await Promise.all([
-        fetchWithAuth('/admin/stats'),
-        fetchWithAuth('/admin/reservations/all'),
+        getAdminStats(),
+        getAllReservations(),
       ]);
+
       setStats(statsData);
       setReservations(reservationsData);
     } catch (error) {
-      setError('Erreur lors du rafraîchissement des données');
       console.error('Erreur:', error);
+      setError('Erreur lors du rafraîchissement des données');
+    } finally {
+      setLoading((prev) => ({ ...prev, reservations: false, stats: false }));
     }
   };
 
@@ -399,6 +368,7 @@ const Admin = () => {
         </div>
       )}
 
+      {/* Statistiques */}
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow p-6">
@@ -436,6 +406,7 @@ const Admin = () => {
         </div>
       )}
 
+      {/* Liste des réservations */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-xl font-semibold">Toutes les réservations</h2>
