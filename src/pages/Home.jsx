@@ -1,16 +1,36 @@
+// Home.jsx
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FaTicketAlt, FaStar, FaCalendarAlt } from 'react-icons/fa';
 
 const Home = () => {
+  const navigate = useNavigate();
+  const token = localStorage.getItem('token');
+
+  const handleReservationRedirect = () => {
+    if (token) {
+      navigate('/reservation');
+    } else {
+      navigate('/register');
+    }
+  };
+
+  const handleOfferRedirect = (offerType) => {
+    if (token) {
+      navigate(`/reservation?offre=${offerType}`);
+    } else {
+      navigate('/register');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero section */}
       <section
         className="relative bg-cover bg-center overflow-hidden"
         style={{
-          backgroundImage: 'url(http://localhost:3000/images/jo_accueil.jpg)',
+          backgroundImage: "url('/images/jo_accueil.jpg')", // Chemin relatif vers l'image locale
         }}
       >
         <div className="absolute inset-0 bg-black/60" />
@@ -31,13 +51,13 @@ const Home = () => {
           </p>
 
           <div className="mt-8 flex flex-wrap justify-center gap-4">
-            <Link
-              to="/reservation"
+            <button
+              onClick={handleReservationRedirect}
               className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition duration-200 flex items-center gap-2"
             >
               <FaTicketAlt className="w-5 h-5" />
               Acheter mes billets
-            </Link>
+            </button>
             <Link
               to="/events"
               className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 transition duration-200 flex items-center gap-2"
@@ -78,12 +98,12 @@ const Home = () => {
               <p className="text-sm text-gray-500">par personne</p>
             </div>
             <div className="mt-6 text-center">
-              <Link
-                to="/reservation?offre=solo"
+              <button
+                onClick={() => handleOfferRedirect('solo')}
                 className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition duration-200"
               >
                 Choisir cette offre
-              </Link>
+              </button>
             </div>
           </motion.div>
 
@@ -109,12 +129,12 @@ const Home = () => {
               <p className="text-sm text-gray-500">pour deux personnes</p>
             </div>
             <div className="mt-6 text-center">
-              <Link
-                to="/reservation?offre=duo"
+              <button
+                onClick={() => handleOfferRedirect('duo')}
                 className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition duration-200"
               >
                 Choisir cette offre
-              </Link>
+              </button>
             </div>
           </motion.div>
 
@@ -140,12 +160,12 @@ const Home = () => {
               <p className="text-sm text-gray-500">pour toute la famille</p>
             </div>
             <div className="mt-6 text-center">
-              <Link
-                to="/reservation?offre=familiale"
+              <button
+                onClick={() => handleOfferRedirect('familiale')}
                 className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition duration-200"
               >
                 Choisir cette offre
-              </Link>
+              </button>
             </div>
           </motion.div>
         </div>

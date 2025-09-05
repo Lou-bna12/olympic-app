@@ -1,3 +1,4 @@
+// Footer.js
 import React from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -16,6 +17,8 @@ import {
 import { MdEmail } from 'react-icons/md';
 
 const Footer = () => {
+  const token = localStorage.getItem('token');
+
   return (
     <footer className="bg-neutral-900 text-white px-6 py-12">
       <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
@@ -63,7 +66,10 @@ const Footer = () => {
             </li>
             <li className="flex items-center gap-3">
               <FaTicketAlt className="text-blue-400" />
-              <Link to="/reservation" className="hover:text-white transition">
+              <Link
+                to={token ? '/reservation' : '/register'}
+                className="hover:text-white transition"
+              >
                 Billetterie
               </Link>
             </li>

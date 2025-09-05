@@ -1,9 +1,8 @@
-// src/App.js
 import React, { useEffect, useState } from 'react';
 import { Routes, Route, useLocation, Navigate, Link } from 'react-router-dom';
 import MesReservations from './components/MesReservations';
-import AdminRoute from './components/AdminRoute'; // ← IMPORT AJOUTÉ
-
+import AdminRoute from './components/AdminRoute';
+import CookieBanner from './components/CookieBanner';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -14,6 +13,7 @@ import Reservation from './pages/Reservation';
 import Confirmation from './pages/Confirmation';
 import Admin from './pages/Admin';
 import Logout from './components/Logout';
+import Events from './pages/events';
 
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -123,13 +123,13 @@ const App = () => {
       <Routes>
         {/* Routes publiques */}
         <Route path="/" element={<Home />} />
+        <Route path="/events" element={<Events />} />
         <Route path="/reservation" element={<Reservation />} />
         <Route path="/confirmation" element={<Confirmation />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-
         {/* Routes protégées (utilisateur connecté) */}
         <Route
           path="/dashboard"
@@ -155,7 +155,6 @@ const App = () => {
             </RequireAuth>
           }
         />
-
         {/* Routes admin (utilisateur admin) */}
         <Route
           path="/admin/*"
@@ -165,13 +164,15 @@ const App = () => {
             </AdminRoute>
           }
         />
-
         {/* Page 404 personnalisée */}
         <Route path="*" element={<PageNotFound />} />
       </Routes>
 
       {/* Footer affiché sauf sur certaines pages */}
       {afficherFooter && <Footer />}
+
+      {/* Bannière de gestion des cookies */}
+      <CookieBanner />
     </>
   );
 };
