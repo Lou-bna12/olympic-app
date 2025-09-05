@@ -12,12 +12,26 @@ const api = axios.create({
 
 // --- Intercepteur pour ajouter le token ---
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('token'); // Utilisez 'token' et non 'authToken'
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
+
+// --- Gestion des erreurs d'authentification ---
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Token expiré ou invalide
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login?session=expired';
+    }
+    return Promise.reject(error);
+  }
+);
 
 // --- Fonctions spécifiques Auth ---
 export async function login(email, password) {
@@ -48,10 +62,8 @@ export async function createReservation(reservationData) {
   return response.data;
 }
 
-export const getProfile = async (token) => {
-  const response = await axios.get(`${API_URL}/auth/me`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+export const getProfile = async () => {
+  const response = await api.get('/auth/me');
   return response.data;
 };
 

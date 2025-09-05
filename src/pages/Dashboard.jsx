@@ -18,7 +18,7 @@ const Dashboard = () => {
     if (isAdmin) {
       console.log('🔄 Redirecting admin to /admin');
       navigate('/admin');
-      return; // Arrêter l'exécution ici pour éviter de fetch les stats
+      return;
     }
 
     const fetchStats = async () => {
@@ -76,7 +76,7 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gray-100 py-8 px-4">
       <div className="max-w-4xl mx-auto">
-        {/* ✅ Message de Bienvenue */}
+        {/*  Message de Bienvenue */}
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">
             Bienvenue{user?.username ? `, ${user.username}` : ''} ! 👋
@@ -135,13 +135,13 @@ const Dashboard = () => {
           </h2>
           <div className="flex flex-wrap gap-4">
             <button
-              onClick={() => (window.location.href = '/reservation')}
+              onClick={() => navigate('/reservation')}
               className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
             >
               Nouvelle réservation
             </button>
             <button
-              onClick={() => (window.location.href = '/mes-reservations')}
+              onClick={() => navigate('/mes-reservations')}
               className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700"
             >
               Voir mes réservations

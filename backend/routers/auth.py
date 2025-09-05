@@ -1,4 +1,3 @@
-# auth.py - CORRIGÉ
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
@@ -35,6 +34,22 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
         expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+# FONCTION MANQUANTE - AJOUTEZ CELLE-CI
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise HTTPException(status_code=401, detail="Token invalide")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Token invalide")
+
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    
+    return user
 
 # -----------------------
 # Routes
@@ -91,7 +106,7 @@ def read_users_me(token: str = Depends(oauth2_scheme), db: Session = Depends(get
     if user is None:
         raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
 
-    # DEBUG: Afficher les données de l'utilisateur
+    # Afficher les données de l'utilisateur
     print(f"User data for /me: id={user.id}, email={user.email}, is_admin={user.is_admin}")
     
     return user

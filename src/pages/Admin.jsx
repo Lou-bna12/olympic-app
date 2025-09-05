@@ -1,300 +1,610 @@
 import React, { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { FiHome, FiUsers, FiCalendar, FiSearch, FiCheck } from 'react-icons/fi';
+import QRCodeModal from '../components/QRCodeModal';
 
-export default function Admin() {
-  const { isAdmin, user } = useAuth() ?? {};
-  const [section, setSection] = useState('overview');
-  const [stats, setStats] = useState(null);
+const Admin = () => {
   const [reservations, setReservations] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-
-  // DEBUG TEMPORAIRE
-  console.log('=== DEBUG ADMIN ===');
-  console.log('User:', user);
-  console.log('isAdmin from context:', isAdmin);
-  console.log('User is_admin:', user?.is_admin);
-
-  useEffect(() => {
-    if (isAdmin) {
-      fetchAdminData();
-    }
-  }, [isAdmin]);
-
-  const fetchAdminData = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const [statsResponse, reservationsResponse] = await Promise.all([
-        fetch('http://127.0.0.1:8000/admin/stats', {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch('http://127.0.0.1:8000/admin/reservations/all', {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-      ]);
-
-      if (statsResponse.ok && reservationsResponse.ok) {
-        const statsData = await statsResponse.json();
-        const reservationsData = await reservationsResponse.json();
-        setStats(statsData);
-        setReservations(reservationsData);
-      }
-    } catch (error) {
-      console.error('Erreur admin:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const generateQRCode = async (reservationId) => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `http://127.0.0.1:8000/admin/reservations/${reservationId}/qrcode`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        window.open(data.qrcode, '_blank');
-      }
-    } catch (error) {
-      console.error('Erreur QR code:', error);
-    }
-  };
-
-  const approveReservation = async (reservationId) => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `http://127.0.0.1:8000/admin/reservations/${reservationId}/approve`,
-        {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      if (response.ok) {
-        fetchAdminData();
-      }
-    } catch (error) {
-      console.error('Erreur approbation:', error);
-    }
-  };
-
-  const filteredReservations = reservations.filter((reservation) => {
-    const matchesSearch =
-      search === '' ||
-      reservation.username.toLowerCase().includes(search.toLowerCase()) ||
-      reservation.email.toLowerCase().includes(search.toLowerCase()) ||
-      reservation.id.toString().includes(search);
-
-    return matchesSearch;
+  const [stats, setStats] = useState(null);
+  const [qrCodeData, setQrCodeData] = useState(null);
+  const [editingReservation, setEditingReservation] = useState(null);
+  const [loading, setLoading] = useState({
+    reservations: true,
+    stats: true,
+    qrCode: false,
+    approval: false,
+    delete: false,
+    update: false,
   });
+  const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
-  if (!isAdmin) {
-    console.log('❌ REDIRECTION vers /dashboard - Utilisateur non admin');
-    return <Navigate to="/dashboard" replace />;
-  }
+  // Fonction pour calculer le prix selon l'offre
+  const calculatePrice = (offre, quantity) => {
+    const prices = {
+      Solo: 25,
+      Duo: 50,
+      Familiale: 150,
+    };
+    return (prices[offre] || 70) * quantity;
+  };
 
-  if (loading) {
+  // Fonction pour les appels API avec authentification
+  const fetchWithAuth = async (url, options = {}) => {
+    const token = localStorage.getItem('token');
+
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`http://127.0.0.1:8000${url}`, {
+      ...options,
+      headers,
+    });
+
+    if (response.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login?session=expired';
+      throw new Error('Session expirée');
+    }
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
+  };
+
+  // Charger les données
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const data = await fetchWithAuth('/admin/stats');
+        setStats(data);
+      } catch (error) {
+        setError('Erreur lors du chargement des statistiques');
+        console.error('Erreur:', error);
+      } finally {
+        setLoading((prev) => ({ ...prev, stats: false }));
+      }
+    };
+
+    const fetchReservations = async () => {
+      try {
+        const data = await fetchWithAuth('/admin/reservations/all');
+        setReservations(data);
+      } catch (error) {
+        setError('Erreur lors du chargement des réservations');
+        console.error('Erreur:', error);
+      } finally {
+        setLoading((prev) => ({ ...prev, reservations: false }));
+      }
+    };
+
+    fetchStats();
+    fetchReservations();
+  }, []);
+
+  // Fonction pour générer le QR code
+  const generateQRCode = async (reservationId) => {
+    setLoading((prev) => ({ ...prev, qrCode: true }));
+    setError('');
+
+    try {
+      const data = await fetchWithAuth(
+        `/admin/reservations/${reservationId}/qrcode`
+      );
+      setQrCodeData(data);
+    } catch (error) {
+      setError('Erreur lors de la génération du QR code');
+      console.error('Erreur:', error);
+    } finally {
+      setLoading((prev) => ({ ...prev, qrCode: false }));
+    }
+  };
+
+  // Fonction pour approuver une réservation
+  const approveReservation = async (reservationId) => {
+    setLoading((prev) => ({ ...prev, approval: true }));
+    setError('');
+    setSuccessMessage('');
+
+    try {
+      await fetchWithAuth(`/admin/reservations/${reservationId}/approve`, {
+        method: 'POST',
+      });
+
+      setSuccessMessage('Réservation approuvée avec succès!');
+      refreshData();
+    } catch (error) {
+      setError("Erreur lors de l'approbation de la réservation");
+      console.error('Erreur:', error);
+    } finally {
+      setLoading((prev) => ({ ...prev, approval: false }));
+    }
+  };
+
+  // Fonction pour rejeter une réservation
+  const rejectReservation = async (reservationId) => {
+    setLoading((prev) => ({ ...prev, approval: true }));
+    setError('');
+    setSuccessMessage('');
+
+    try {
+      await fetchWithAuth(`/admin/reservations/${reservationId}/reject`, {
+        method: 'POST',
+      });
+
+      setSuccessMessage('Réservation rejetée avec succès!');
+      refreshData();
+    } catch (error) {
+      setError('Erreur lors du rejet de la réservation');
+      console.error('Erreur:', error);
+    } finally {
+      setLoading((prev) => ({ ...prev, approval: false }));
+    }
+  };
+
+  // Fonction pour supprimer une réservation
+  const deleteReservation = async (reservationId) => {
+    if (
+      !window.confirm('Êtes-vous sûr de vouloir supprimer cette réservation ?')
+    ) {
+      return;
+    }
+
+    setLoading((prev) => ({ ...prev, delete: true }));
+    setError('');
+    setSuccessMessage('');
+
+    try {
+      await fetchWithAuth(`/admin/reservations/${reservationId}`, {
+        method: 'DELETE',
+      });
+
+      setSuccessMessage('Réservation supprimée avec succès!');
+      refreshData();
+    } catch (error) {
+      setError('Erreur lors de la suppression de la réservation');
+      console.error('Erreur:', error);
+    } finally {
+      setLoading((prev) => ({ ...prev, delete: false }));
+    }
+  };
+
+  // Fonction pour modifier une réservation
+  const updateReservation = async (reservationId, updatedData) => {
+    setLoading((prev) => ({ ...prev, update: true }));
+    setError('');
+    setSuccessMessage('');
+
+    try {
+      await fetchWithAuth(`/admin/reservations/${reservationId}`, {
+        method: 'PUT',
+        body: JSON.stringify(updatedData),
+      });
+
+      setSuccessMessage('Réservation modifiée avec succès!');
+      setEditingReservation(null);
+      refreshData();
+    } catch (error) {
+      setError('Erreur lors de la modification de la réservation');
+      console.error('Erreur:', error);
+    } finally {
+      setLoading((prev) => ({ ...prev, update: false }));
+    }
+  };
+
+  // Rafraîchir les données
+  const refreshData = async () => {
+    try {
+      const [statsData, reservationsData] = await Promise.all([
+        fetchWithAuth('/admin/stats'),
+        fetchWithAuth('/admin/reservations/all'),
+      ]);
+      setStats(statsData);
+      setReservations(reservationsData);
+    } catch (error) {
+      setError('Erreur lors du rafraîchissement des données');
+      console.error('Erreur:', error);
+    }
+  };
+
+  // Formulaire de modification
+  const EditReservationForm = ({ reservation, onSave, onCancel }) => {
+    const [formData, setFormData] = useState({
+      username: reservation.username,
+      email: reservation.email,
+      date: reservation.date.split('T')[0],
+      offre: reservation.offre,
+      quantity: reservation.quantity,
+      status: reservation.status,
+    });
+
+    const [price, setPrice] = useState(
+      calculatePrice(reservation.offre, reservation.quantity)
+    );
+
+    // Recalculer le prix quand l'offre ou la quantité change
+    useEffect(() => {
+      setPrice(calculatePrice(formData.offre, formData.quantity));
+    }, [formData.offre, formData.quantity]);
+
+    const handleSubmit = (e) => {
+      e.preventDefault();
+      onSave(reservation.id, formData);
+    };
+
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        Chargement...
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg max-w-md w-full mx-4 overflow-hidden">
+          <div className="p-6">
+            <h2 className="text-xl font-bold mb-4">
+              Modifier la réservation #{reservation.id}
+            </h2>
+            <form onSubmit={handleSubmit}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Nom
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.username}
+                    onChange={(e) =>
+                      setFormData({ ...formData, username: e.target.value })
+                    }
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Date
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.date}
+                    onChange={(e) =>
+                      setFormData({ ...formData, date: e.target.value })
+                    }
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Offre
+                  </label>
+                  <select
+                    value={formData.offre}
+                    onChange={(e) =>
+                      setFormData({ ...formData, offre: e.target.value })
+                    }
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                    required
+                  >
+                    <option value="Solo">Solo (25€)</option>
+                    <option value="Duo">Duo (50€)</option>
+                    <option value="Familiale">Familiale (150€)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Quantité
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.quantity}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        quantity: parseInt(e.target.value) || 1,
+                      })
+                    }
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                    min="1"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Prix total
+                  </label>
+                  <div className="mt-1 p-2 bg-gray-100 rounded-md">
+                    <strong>{price} €</strong>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Statut
+                  </label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) =>
+                      setFormData({ ...formData, status: e.target.value })
+                    }
+                    className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                    required
+                  >
+                    <option value="pending">En attente</option>
+                    <option value="approved">Approuvé</option>
+                    <option value="rejected">Rejeté</option>
+                  </select>
+                </div>
+              </div>
+              <div className="mt-6 flex space-x-3">
+                <button
+                  type="submit"
+                  disabled={loading.update}
+                  className="flex-1 bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 disabled:opacity-50"
+                >
+                  {loading.update ? 'Enregistrement...' : 'Enregistrer'}
+                </button>
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  className="flex-1 bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600"
+                >
+                  Annuler
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  if (loading.stats || loading.reservations) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        <span className="ml-3">Chargement des données administrateur...</span>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="sticky top-0 z-10 border-b bg-white/80 backdrop-blur">
-        <div className="mx-auto max-w-7xl px-4 h-14 flex items-center gap-3">
-          <div className="flex items-center gap-2 text-gray-800">
-            <div className="w-8 h-8 rounded-xl bg-gray-900 text-white grid place-items-center">
-              A
-            </div>
-            <div className="font-semibold">Tableau de bord — Admin</div>
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold mb-8">Espace Administrateur</h1>
+
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+          {error}
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
+          {successMessage}
+        </div>
+      )}
+
+      {/* Statistiques */}
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold text-gray-600">
+              Total des réservations
+            </h3>
+            <p className="text-3xl font-bold text-blue-600">
+              {stats.total_reservations}
+            </p>
           </div>
-          <div className="ml-auto text-sm text-gray-600">
-            Connecté en tant que{' '}
-            <span className="font-semibold">{user?.username || 'Admin'}</span>
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold text-gray-600">
+              Réservations en attente
+            </h3>
+            <p className="text-3xl font-bold text-yellow-600">
+              {stats.pending_reservations}
+            </p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold text-gray-600">
+              Utilisateurs inscrits
+            </h3>
+            <p className="text-3xl font-bold text-green-600">
+              {stats.total_users}
+            </p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold text-gray-600">
+              Revenus totaux
+            </h3>
+            <p className="text-3xl font-bold text-purple-600">
+              {stats.revenue} €
+            </p>
           </div>
         </div>
-      </div>
+      )}
 
-      <div className="mx-auto max-w-7xl px-4 py-6 grid grid-cols-1 md:grid-cols-[220px_1fr] gap-6">
-        <aside className="md:sticky md:top-16 h-max">
-          <div className="rounded-2xl border bg-white p-3 space-y-2">
-            <button
-              onClick={() => setSection('overview')}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm ${
-                section === 'overview'
-                  ? 'bg-gray-900 text-white'
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              <FiHome className="text-base" />
-              <span>Aperçu</span>
-            </button>
-            <button
-              onClick={() => setSection('reservations')}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm ${
-                section === 'reservations'
-                  ? 'bg-gray-900 text-white'
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              <FiCalendar className="text-base" />
-              <span>Réservations</span>
-            </button>
-            <button
-              onClick={() => setSection('users')}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm ${
-                section === 'users'
-                  ? 'bg-gray-900 text-white'
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              <FiUsers className="text-base" />
-              <span>Utilisateurs</span>
-            </button>
-          </div>
-        </aside>
+      {/* Liste des réservations */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-xl font-semibold">Toutes les réservations</h2>
+        </div>
 
-        <main className="space-y-6">
-          {section === 'overview' && stats && (
-            <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
-              <div className="rounded-2xl border bg-white p-4 shadow-sm">
-                <div className="text-sm text-gray-500">
-                  Réservations totales
-                </div>
-                <div className="mt-1 text-2xl font-bold">
-                  {stats.total_reservations}
-                </div>
-              </div>
-              <div className="rounded-2xl border bg-white p-4 shadow-sm">
-                <div className="text-sm text-gray-500">En attente</div>
-                <div className="mt-1 text-2xl font-bold">
-                  {stats.pending_reservations}
-                </div>
-              </div>
-              <div className="rounded-2xl border bg-white p-4 shadow-sm">
-                <div className="text-sm text-gray-500">Utilisateurs</div>
-                <div className="mt-1 text-2xl font-bold">
-                  {stats.total_users}
-                </div>
-              </div>
-              <div className="rounded-2xl border bg-white p-4 shadow-sm">
-                <div className="text-sm text-gray-500">Revenu</div>
-                <div className="mt-1 text-2xl font-bold">{stats.revenue}€</div>
-              </div>
-            </div>
-          )}
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  ID
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Nom
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Email
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Date
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Offre
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Quantité
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Prix
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Statut
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {reservations.map((reservation) => {
+                const price = calculatePrice(
+                  reservation.offre,
+                  reservation.quantity
+                );
+                return (
+                  <tr key={reservation.id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      #{reservation.id}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {reservation.username}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {reservation.email}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(reservation.date).toLocaleDateString('fr-FR')}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {reservation.offre}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {reservation.quantity}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                      {price} €
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          reservation.status === 'approved'
+                            ? 'bg-green-100 text-green-800'
+                            : reservation.status === 'rejected'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}
+                      >
+                        {reservation.status === 'approved'
+                          ? 'Approuvée'
+                          : reservation.status === 'rejected'
+                          ? 'Rejetée'
+                          : 'En attente'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                      <button
+                        onClick={() => generateQRCode(reservation.id)}
+                        disabled={
+                          loading.qrCode || reservation.status !== 'approved'
+                        }
+                        className="text-blue-600 hover:text-blue-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Générer QR Code"
+                      >
+                        📷
+                      </button>
 
-          {section === 'reservations' && (
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                <div className="relative max-w-md w-full">
-                  <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Rechercher par nom, email ou #id…"
-                    className="w-full pl-9 pr-3 py-2 rounded-xl border bg-white"
-                  />
-                </div>
-              </div>
-
-              <div className="rounded-2xl border bg-white p-0 overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 text-gray-600">
-                      <tr>
-                        <th className="px-3 py-2 text-left">#</th>
-                        <th className="px-3 py-2 text-left">Client</th>
-                        <th className="px-3 py-2 text-left">Email</th>
-                        <th className="px-3 py-2 text-left">Date</th>
-                        <th className="px-3 py-2 text-left">Offre</th>
-                        <th className="px-3 py-2 text-left">Quantité</th>
-                        <th className="px-3 py-2 text-left">Statut</th>
-                        <th className="px-3 py-2 text-left">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredReservations.map((reservation) => (
-                        <tr key={reservation.id} className="border-t">
-                          <td className="px-3 py-2 font-mono text-xs">
-                            #{reservation.id}
-                          </td>
-                          <td className="px-3 py-2">{reservation.username}</td>
-                          <td className="px-3 py-2">{reservation.email}</td>
-                          <td className="px-3 py-2">{reservation.date}</td>
-                          <td className="px-3 py-2">{reservation.offre}</td>
-                          <td className="px-3 py-2">{reservation.quantity}</td>
-                          <td className="px-3 py-2">
-                            <span
-                              className={`px-2 py-1 text-xs rounded-full ${
-                                reservation.status === 'approved'
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : reservation.status === 'pending'
-                                  ? 'bg-amber-100 text-amber-800'
-                                  : 'bg-rose-100 text-rose-800'
-                              }`}
-                            >
-                              {reservation.status === 'approved'
-                                ? 'Validée'
-                                : reservation.status === 'pending'
-                                ? 'En attente'
-                                : 'Refusée'}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2">
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() =>
-                                  approveReservation(reservation.id)
-                                }
-                                className="inline-flex items-center gap-1 text-emerald-700 hover:bg-emerald-50 px-2 py-1 rounded"
-                              >
-                                <FiCheck /> Valider
-                              </button>
-                              <button
-                                onClick={() => generateQRCode(reservation.id)}
-                                className="bg-blue-600 text-white px-3 py-1 rounded"
-                              >
-                                Générer QR
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                      {filteredReservations.length === 0 && (
-                        <tr>
-                          <td
-                            colSpan="8"
-                            className="py-10 text-center text-gray-500"
+                      {reservation.status === 'pending' && (
+                        <>
+                          <button
+                            onClick={() => approveReservation(reservation.id)}
+                            disabled={loading.approval}
+                            className="text-green-600 hover:text-green-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Approuver"
                           >
-                            Aucune réservation trouvée.
-                          </td>
-                        </tr>
+                            ✓
+                          </button>
+                          <button
+                            onClick={() => rejectReservation(reservation.id)}
+                            disabled={loading.approval}
+                            className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Rejeter"
+                          >
+                            ✗
+                          </button>
+                        </>
                       )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
 
-          {section === 'users' && (
-            <div className="rounded-2xl border bg-white p-5">
-              <h3 className="font-semibold mb-4">Gestion des utilisateurs</h3>
-              <p className="text-gray-600">Fonctionnalité à venir...</p>
-            </div>
-          )}
-        </main>
+                      <button
+                        onClick={() => setEditingReservation(reservation)}
+                        disabled={loading.update}
+                        className="text-yellow-600 hover:text-yellow-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Modifier"
+                      >
+                        ✏️
+                      </button>
+
+                      <button
+                        onClick={() => deleteReservation(reservation.id)}
+                        disabled={loading.delete}
+                        className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Supprimer"
+                      >
+                        🗑️
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {reservations.length === 0 && (
+          <div className="text-center py-8 text-gray-500">
+            Aucune réservation trouvée
+          </div>
+        )}
       </div>
+
+      {/* Modal pour afficher le QR code */}
+      {qrCodeData && (
+        <QRCodeModal
+          qrCodeData={qrCodeData}
+          onClose={() => setQrCodeData(null)}
+        />
+      )}
+
+      {/* Formulaire de modification */}
+      {editingReservation && (
+        <EditReservationForm
+          reservation={editingReservation}
+          onSave={updateReservation}
+          onCancel={() => setEditingReservation(null)}
+        />
+      )}
     </div>
   );
-}
+};
+
+export default Admin;

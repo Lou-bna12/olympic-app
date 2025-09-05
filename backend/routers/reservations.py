@@ -2,13 +2,17 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db, SECRET_KEY, ALGORITHM
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 import models
 from jose import JWTError, jwt
 from fastapi.security import OAuth2PasswordBearer
 from datetime import datetime, date
 import os
 from dotenv import load_dotenv
+import qrcode
+from io import BytesIO
+import base64
+from fastapi.responses import JSONResponse
 
 # Charger les variables d'environnement depuis la racine
 load_dotenv('../.env')  
@@ -23,6 +27,13 @@ class ReservationRequest(BaseModel):
     date: date  
     offre: str
     quantity: int
+
+class ReservationUpdate(BaseModel):
+    username: Optional[str] = None
+    email: Optional[str] = None
+    date: Optional[date] = None
+    offre: Optional[str] = None
+    quantity: Optional[int] = None
 
 # Décode le token et récupère l'email
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
@@ -75,9 +86,120 @@ def get_my_reservations(
             "date": r.date.isoformat() if r.date else None,
             "offre": r.offre,
             "quantity": r.quantity,
+            "status": r.status
         }
         for r in reservations
     ]
+
+@router.put("/{reservation_id}", response_model=dict)
+def update_reservation(
+    reservation_id: int,
+    request: ReservationUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    reservation = db.query(models.Reservation).filter(
+        models.Reservation.id == reservation_id,
+        models.Reservation.user_id == current_user.id
+    ).first()
+    
+    if not reservation:
+        raise HTTPException(status_code=404, detail="Réservation non trouvée")
+    
+    # Mettre à jour seulement les champs fournis
+    if request.username is not None:
+        reservation.username = request.username
+    if request.email is not None:
+        reservation.email = request.email
+    if request.date is not None:
+        reservation.date = request.date
+    if request.offre is not None:
+        reservation.offre = request.offre
+    if request.quantity is not None:
+        reservation.quantity = request.quantity
+    
+    db.commit()
+    db.refresh(reservation)
+    
+    return {"message": "Réservation modifiée avec succès ✅", "id": reservation.id}
+
+@router.delete("/{reservation_id}", response_model=dict)
+def delete_reservation(
+    reservation_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    reservation = db.query(models.Reservation).filter(
+        models.Reservation.id == reservation_id,
+        models.Reservation.user_id == current_user.id
+    ).first()
+    
+    if not reservation:
+        raise HTTPException(status_code=404, detail="Réservation non trouvée")
+    
+    db.delete(reservation)
+    db.commit()
+    
+    return {"message": "Réservation supprimée avec succès 🗑️", "id": reservation_id}
+
+@router.get("/{reservation_id}/qrcode", response_model=dict)
+def get_reservation_qrcode(
+    reservation_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    reservation = db.query(models.Reservation).filter(
+        models.Reservation.id == reservation_id,
+        models.Reservation.user_id == current_user.id
+    ).first()
+    
+    if not reservation:
+        raise HTTPException(status_code=404, detail="Réservation non trouvée")
+    
+    # Créer les données pour le QR Code
+    qr_data = f"""
+    RÉSERVATION OLYMPIC GAMES
+    --------------------------
+    ID: {reservation.id}
+    Nom: {reservation.username}
+    Email: {reservation.email}
+    Date: {reservation.date}
+    Offre: {reservation.offre}
+    Quantité: {reservation.quantity}
+    Statut: {reservation.status}
+    --------------------------
+    Merci pour votre réservation !
+    """
+    
+    # Générer le QR Code
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(qr_data)
+    qr.make(fit=True)
+    
+    img = qr.make_image(fill_color="black", back_color="white")
+    
+    # Convertir en base64
+    buffered = BytesIO()
+    img.save(buffered, format="PNG")
+    qr_code_base64 = base64.b64encode(buffered.getvalue()).decode()
+    
+    return {
+        "qr_code": f"data:image/png;base64,{qr_code_base64}",
+        "reservation_data": {
+            "id": reservation.id,
+            "username": reservation.username,
+            "email": reservation.email,
+            "date": reservation.date.isoformat(),
+            "offre": reservation.offre,
+            "quantity": reservation.quantity,
+            "status": reservation.status
+        }
+    }
 
 @router.get("/stats", response_model=dict)
 def get_reservation_stats(

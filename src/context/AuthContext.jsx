@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import axios from 'axios';
+import api, { getProfile } from '../services/api'; // Importez depuis votre utilitaire
 
 const AuthContext = createContext();
 
@@ -9,13 +9,12 @@ const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authReady, setAuthReady] = useState(false);
 
-  // Supprimer l'état isAdmin séparé et le calculer à partir de user
   const isAdmin = user?.is_admin === true;
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      fetchUser(token);
+      fetchUser();
     } else {
       setLoading(false);
       setAuthReady(true);
@@ -23,17 +22,14 @@ const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  const fetchUser = async (token) => {
+  const fetchUser = async () => {
     try {
-      const response = await axios.get('http://127.0.0.1:8000/auth/me', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const userData = await getProfile(); // Utilisez la fonction de votre utilitaire
+      console.log('User data from API:', userData); // Debug
 
-      console.log('User data from API:', response.data); // Debug
-
-      setUser(response.data);
+      setUser(userData);
       setIsAuthenticated(true);
-      localStorage.setItem('user', JSON.stringify(response.data));
+      localStorage.setItem('user', JSON.stringify(userData));
     } catch (error) {
       console.error('Erreur récupération profil:', error);
       setUser(null);
@@ -49,13 +45,13 @@ const AuthProvider = ({ children }) => {
   // Connexion
   const login = async (email, password) => {
     try {
-      const response = await axios.post('http://127.0.0.1:8000/auth/login', {
+      const response = await api.post('/auth/login', {
         email,
         password,
       });
       const { access_token } = response.data;
       localStorage.setItem('token', access_token);
-      await fetchUser(access_token);
+      await fetchUser();
       return true;
     } catch (error) {
       console.error('Erreur de connexion:', error);
@@ -66,9 +62,8 @@ const AuthProvider = ({ children }) => {
 
   // Inscription
   const register = async (username, email, password) => {
-    // SUPPRIMER le paramètre role
     try {
-      await axios.post('http://127.0.0.1:8000/auth/register', {
+      await api.post('/auth/register', {
         username,
         email,
         password,
@@ -94,7 +89,7 @@ const AuthProvider = ({ children }) => {
         user,
         loading,
         isAuthenticated,
-        isAdmin, // Maintenant calculé à partir de user
+        isAdmin,
         authReady,
         login,
         register,

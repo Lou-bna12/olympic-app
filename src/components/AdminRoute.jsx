@@ -1,14 +1,18 @@
-// src/components/AdminRoute.jsx
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import IndicateurChargement from './IndicateurChargement';
 
 export default function AdminRoute({ children }) {
-  const { isAuthenticated, isAdmin, authReady, loading } = useAuth();
+  const { isAuthenticated, isAdmin, loading, authToken } = useAuth(); // ← Récupérez authToken
   const location = useLocation();
 
-  if (loading || !authReady) {
+  // Stocker le token dans localStorage pour être sûr qu'il est accessible
+  if (authToken && !localStorage.getItem('authToken')) {
+    localStorage.setItem('authToken', authToken);
+  }
+
+  if (loading) {
     return <IndicateurChargement />;
   }
 
