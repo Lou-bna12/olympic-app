@@ -5,9 +5,9 @@ const Reservation = () => {
   const navigate = useNavigate();
 
   const PRICES = {
-    solo: 25,
-    duo: 50,
-    familiale: 150,
+    Solo: 25,
+    Duo: 50,
+    Familiale: 150,
   };
 
   const [formData, setFormData] = useState({
@@ -17,9 +17,10 @@ const Reservation = () => {
     quantity: 1,
   });
 
-  const totalPrice = formData.offre
-    ? PRICES[formData.offre] * formData.quantity
-    : 0;
+  const totalPrice =
+    formData.offre && PRICES[formData.offre]
+      ? PRICES[formData.offre] * formData.quantity
+      : 0;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -38,15 +39,18 @@ const Reservation = () => {
       return;
     }
 
+    const formattedOffre =
+      formData.offre.charAt(0).toUpperCase() + formData.offre.slice(1);
+
     const data = {
       username: formData.username,
       email: user.email,
       date: formData.date,
-      offre: formData.offre,
-      quantity: formData.quantity,
+      offre: formattedOffre,
+      quantity: parseInt(formData.quantity),
     };
 
-    console.log('📤 Données envoyées:', data);
+    console.log(' Données envoyées:', data);
 
     try {
       const response = await fetch('http://127.0.0.1:8000/reservations/', {
@@ -60,21 +64,21 @@ const Reservation = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('❌ Erreur API:', errorData);
+        console.error(' Erreur API:', errorData);
         alert(
-          'Erreur lors de la réservation ❌: ' +
+          'Erreur lors de la réservation : ' +
             (errorData.detail || 'Erreur inconnue')
         );
         return;
       }
 
       const result = await response.json();
-      console.log('✅ Réservation réussie:', result);
-      alert('Réservation réussie 🎉');
+      console.log('Réservation réussie:', result);
+      alert('Réservation réussie ');
       navigate('/dashboard');
     } catch (err) {
-      console.error('⚡ Erreur réseau:', err);
-      alert('Erreur réseau ❌');
+      console.error(' Erreur réseau:', err);
+      alert('Erreur réseau ');
     }
   };
 
@@ -118,9 +122,9 @@ const Reservation = () => {
             required
           >
             <option value="">Choisir une offre</option>
-            <option value="solo">Solo - 25 €</option>
-            <option value="duo">Duo - 50 €</option>
-            <option value="familiale">Familiale - 150 €</option>
+            <option value="Solo">Solo - 25 €</option>
+            <option value="Duo">Duo - 50 €</option>
+            <option value="Familiale">Familiale - 150 €</option>
           </select>
           <input
             type="number"

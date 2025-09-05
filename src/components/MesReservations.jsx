@@ -1,11 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { FiEdit, FiTrash2, FiDownload, FiX, FiCheck } from 'react-icons/fi';
+import {
+  FiEdit,
+  FiTrash2,
+  FiDownload,
+  FiX,
+  FiCheck,
+  FiArrowLeft,
+} from 'react-icons/fi';
+import { useNavigate } from 'react-router-dom';
 
 const MesReservations = () => {
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
+  const navigate = useNavigate();
+
+  // Fonction pour calculer le prix selon l'offre
+  const calculatePrice = (offre, quantity) => {
+    const prices = {
+      Solo: 25,
+      Duo: 50,
+      Familiale: 150,
+    };
+    return (prices[offre] || 0) * quantity;
+  };
 
   useEffect(() => {
     fetchReservations();
@@ -39,20 +58,31 @@ const MesReservations = () => {
 
       if (response.ok) {
         const data = await response.json();
-        // Ouvrir le QR code dans une nouvelle fenêtre
-        const newWindow = window.open();
-        newWindow.document.write(`
-          <html>
-            <head><title>QR Code Réservation #${reservationId}</title></head>
-            <body style="display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; flex-direction: column;">
-              <img src="${data.qrcode}" alt="QR Code Réservation ${reservationId}" style="max-width: 80%; max-height: 80%;">
-              <p style="text-align: center; margin-top: 20px; font-family: Arial, sans-serif;">
-                Réservation #${reservationId}<br>
-                Jeux Olympiques Paris 2024
-              </p>
-            </body>
-          </html>
-        `);
+
+        // CORRECTION: Utiliser data.qr_code au lieu de data.qrcode
+        // et ouvrir l'image directement
+        if (data.qr_code) {
+          // Ouvrir le QR code dans une nouvelle fenêtre
+          const newWindow = window.open();
+          newWindow.document.write(`
+            <html>
+              <head><title>QR Code Réservation #${reservationId}</title></head>
+              <body style="display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; flex-direction: column; background-color: #f5f5f5;">
+                <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                  <img src="${data.qr_code}" alt="QR Code Réservation ${reservationId}" style="max-width: 300px; max-height: 300px;">
+                  <p style="text-align: center; margin-top: 20px; font-family: Arial, sans-serif; color: #333;">
+                    Réservation #${reservationId}<br>
+                    Jeux Olympiques Paris 2024
+                  </p>
+                </div>
+              </body>
+            </html>
+          `);
+        } else {
+          alert('Données QR code non disponibles');
+        }
+      } else {
+        alert('Erreur lors de la génération du QR code');
       }
     } catch (error) {
       console.error('Erreur QR code:', error);
@@ -143,6 +173,15 @@ const MesReservations = () => {
   return (
     <div className="min-h-screen bg-gray-100 py-8 px-4">
       <div className="max-w-6xl mx-auto">
+        {/* AJOUT: Bouton de retour */}
+        <button
+          onClick={() => navigate(-1)}
+          className="mb-6 flex items-center text-blue-600 hover:text-blue-800 transition duration-200"
+        >
+          <FiArrowLeft className="mr-2" />
+          Retour
+        </button>
+
         <h1 className="text-3xl font-bold text-gray-800 mb-6">
           Mes Réservations
         </h1>
@@ -186,9 +225,9 @@ const MesReservations = () => {
                           }
                           className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                         >
-                          <option value="solo">Solo</option>
-                          <option value="duo">Duo</option>
-                          <option value="familiale">Familiale</option>
+                          <option value="Solo">Solo</option>
+                          <option value="Duo">Duo</option>
+                          <option value="Familiale">Familiale</option>
                         </select>
                       </div>
                       <div>
@@ -240,6 +279,15 @@ const MesReservations = () => {
                       </p>
                       <p className="text-gray-600">
                         Quantité: {reservation.quantity}
+                      </p>
+                      {/* AJOUT: Affichage du prix */}
+                      <p className="text-gray-600">
+                        Prix:{' '}
+                        {calculatePrice(
+                          reservation.offre,
+                          reservation.quantity
+                        )}{' '}
+                        €
                       </p>
                       <p className="text-gray-600">
                         Statut: {reservation.status || 'confirmée'}

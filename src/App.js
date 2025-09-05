@@ -13,8 +13,6 @@ import Reservation from './pages/Reservation';
 import Confirmation from './pages/Confirmation';
 import Admin from './pages/Admin';
 import Logout from './components/Logout';
-import Events from './pages/events';
-
 import Header from './components/Header';
 import Footer from './components/Footer';
 
@@ -123,7 +121,6 @@ const App = () => {
       <Routes>
         {/* Routes publiques */}
         <Route path="/" element={<Home />} />
-        <Route path="/events" element={<Events />} />
         <Route path="/reservation" element={<Reservation />} />
         <Route path="/confirmation" element={<Confirmation />} />
         <Route path="/login" element={<Login />} />

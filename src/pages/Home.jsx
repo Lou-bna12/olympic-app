@@ -1,24 +1,20 @@
 // Home.jsx
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FaTicketAlt, FaStar, FaCalendarAlt } from 'react-icons/fa';
+import { FaStar } from 'react-icons/fa';
 
 const Home = () => {
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
 
-  const handleReservationRedirect = () => {
-    if (token) {
-      navigate('/reservation');
-    } else {
-      navigate('/register');
-    }
-  };
-
   const handleOfferRedirect = (offerType) => {
+    // Convertir en format avec première lettre en majuscule
+    const formattedOffer =
+      offerType.charAt(0).toUpperCase() + offerType.slice(1);
+
     if (token) {
-      navigate(`/reservation?offre=${offerType}`);
+      navigate(`/reservation?offre=${formattedOffer}`);
     } else {
       navigate('/register');
     }
@@ -50,22 +46,7 @@ const Home = () => {
             vos places, découvrez les événements et soyez au cœur de l'action !
           </p>
 
-          <div className="mt-8 flex flex-wrap justify-center gap-4">
-            <button
-              onClick={handleReservationRedirect}
-              className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition duration-200 flex items-center gap-2"
-            >
-              <FaTicketAlt className="w-5 h-5" />
-              Acheter mes billets
-            </button>
-            <Link
-              to="/events"
-              className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 transition duration-200 flex items-center gap-2"
-            >
-              <FaCalendarAlt className="w-5 h-5" />
-              Voir les événements
-            </Link>
-          </div>
+          {/* SUPPRESSION: Bouton "Acheter mes billets" */}
         </motion.div>
       </section>
 
