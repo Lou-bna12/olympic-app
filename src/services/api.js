@@ -12,7 +12,7 @@ const api = axios.create({
 
 // --- Intercepteur pour ajouter le token ---
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token'); // Utilisez 'token' et non 'authToken'
+  const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -51,6 +51,11 @@ export async function register(username, email, password) {
   return response.data;
 }
 
+export const getProfile = async () => {
+  const response = await api.get('/auth/me');
+  return response.data;
+};
+
 // --- Fonctions pour les réservations ---
 export async function getMyReservations() {
   const response = await api.get('/reservations/me');
@@ -58,13 +63,43 @@ export async function getMyReservations() {
 }
 
 export async function createReservation(reservationData) {
-  const response = await api.post('/reservations/', reservationData);
+  const response = await api.post('/reservations', reservationData);
   return response.data;
 }
 
-export const getProfile = async () => {
-  const response = await api.get('/auth/me');
+// --- Fonctions Admin ---
+export async function getAdminStats() {
+  const response = await api.get('/admin/stats');
   return response.data;
-};
+}
+
+export async function getAllReservations() {
+  const response = await api.get('/admin/reservations/all');
+  return response.data;
+}
+
+export async function approveReservation(reservationId) {
+  const response = await api.post(
+    `/admin/reservations/${reservationId}/approve`
+  );
+  return response.data;
+}
+
+export async function rejectReservation(reservationId) {
+  const response = await api.post(
+    `/admin/reservations/${reservationId}/reject`
+  );
+  return response.data;
+}
+
+export async function deleteReservation(reservationId) {
+  const response = await api.delete(`/admin/reservations/${reservationId}`);
+  return response.data;
+}
+
+export async function generateQRCode(reservationId) {
+  const response = await api.get(`/admin/reservations/${reservationId}/qrcode`);
+  return response.data;
+}
 
 export default api;

@@ -399,7 +399,6 @@ const Admin = () => {
         </div>
       )}
 
-      {/* Statistiques */}
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow p-6">
@@ -437,7 +436,6 @@ const Admin = () => {
         </div>
       )}
 
-      {/* Liste des réservations */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-xl font-semibold">Toutes les réservations</h2>
@@ -482,6 +480,11 @@ const Admin = () => {
                   reservation.offre,
                   reservation.quantity
                 );
+
+                const displayStatus = reservation.status || 'pending';
+                const isPending =
+                  displayStatus === 'pending' || displayStatus === 'confirmée';
+
                 return (
                   <tr key={reservation.id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -508,16 +511,16 @@ const Admin = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
                         className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          reservation.status === 'approved'
+                          displayStatus === 'approved'
                             ? 'bg-green-100 text-green-800'
-                            : reservation.status === 'rejected'
+                            : displayStatus === 'rejected'
                             ? 'bg-red-100 text-red-800'
                             : 'bg-yellow-100 text-yellow-800'
                         }`}
                       >
-                        {reservation.status === 'approved'
+                        {displayStatus === 'approved'
                           ? 'Approuvée'
-                          : reservation.status === 'rejected'
+                          : displayStatus === 'rejected'
                           ? 'Rejetée'
                           : 'En attente'}
                       </span>
@@ -526,7 +529,7 @@ const Admin = () => {
                       <button
                         onClick={() => generateQRCode(reservation.id)}
                         disabled={
-                          loading.qrCode || reservation.status !== 'approved'
+                          loading.qrCode || displayStatus !== 'approved'
                         }
                         className="text-blue-600 hover:text-blue-900 disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Générer QR Code"
@@ -534,7 +537,7 @@ const Admin = () => {
                         📷
                       </button>
 
-                      {reservation.status === 'pending' && (
+                      {isPending && (
                         <>
                           <button
                             onClick={() => approveReservation(reservation.id)}
