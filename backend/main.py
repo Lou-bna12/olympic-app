@@ -3,24 +3,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from routers import auth, reservations, admin, payment, tickets
 from database import Base, engine
 
+# IMPORT EXPLICITE DES MODÈLES - ESSENTIEL !
+from models import User, Offer, Reservation, Ticket
+
+# Création des tables
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
+# UN SEUL middleware CORS (vous aviez une duplication)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  
-    allow_credentials=True,
-    allow_methods=["*"],  
-    allow_headers=["*"],  
 )
 
 # Routes

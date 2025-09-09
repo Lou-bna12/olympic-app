@@ -7,16 +7,47 @@ from utils import generate_random_key, generate_qr_code
 
 router = APIRouter(prefix="/tickets", tags=["tickets"])
 
+@router.get("/me")
+async def get_my_tickets(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Récupère tous les tickets de l'utilisateur connecté
+    """
+    tickets = db.query(Ticket).filter(
+        Ticket.user_id == current_user.id
+    ).all()
+    
+    result = []
+    for ticket in tickets:
+
+        offer_name = ticket.offer.name if ticket.offer else "Offre inconnue"
+        
+        result.append({
+            "id": ticket.id,
+            "offer_name": offer_name,
+            "amount": ticket.amount,
+            "is_paid": ticket.is_paid,
+            "payment_status": ticket.payment_status,
+            "payment_date": ticket.payment_date,
+            "qr_code": ticket.qr_code,
+            "final_key": ticket.final_key,
+            "is_used": ticket.is_used
+        })
+    
+    return result
+
 @router.post("/", response_model=dict)
 async def create_ticket(
-    offer_id: int,
+    offer_id: int,  
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Crée un ticket (système de paiement mocké)
     """
-    # Vérifier l'offre
+
     offer = db.query(Offer).filter(
         Offer.id == offer_id,
         Offer.is_active == True
@@ -25,16 +56,14 @@ async def create_ticket(
     if not offer:
         raise HTTPException(status_code=404, detail="Offre non trouvée")
     
-    # Vérifier le stock
+
     if offer.capacity <= 0:
         raise HTTPException(status_code=400, detail="Plus de places disponibles")
-    
-    # Générer les clés
+
     user_key = current_user.secret_key or generate_random_key()
     reservation_key = generate_random_key()
     final_key = f"{user_key}_{reservation_key}"
     
-    # Créer le ticket NON PAYÉ
     ticket = Ticket(
         user_id=current_user.id,
         offer_id=offer.id,
@@ -45,7 +74,7 @@ async def create_ticket(
         amount=offer.price
     )
     
-    # Réduire la capacité de l'offre
+
     offer.capacity -= 1
     
     db.add(ticket)
@@ -53,7 +82,7 @@ async def create_ticket(
     db.refresh(ticket)
     
     return {
-        "ticket_id": ticket.id,
+        "id": ticket.id,
         "final_key": ticket.final_key,
         "qr_code": ticket.qr_code,
         "is_paid": ticket.is_paid,

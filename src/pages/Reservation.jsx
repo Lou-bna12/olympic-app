@@ -1,14 +1,10 @@
-import React, { useState } from 'react'; // Retirez useEffect
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const Reservation = () => {
   const navigate = useNavigate();
 
-  const PRICES = {
-    Solo: 25,
-    Duo: 50,
-    Familiale: 150,
-  };
+  const PRICES = { Solo: 25, Duo: 50, Familiale: 150 };
 
   const [formData, setFormData] = useState({
     username: '',
@@ -21,8 +17,6 @@ const Reservation = () => {
     formData.offre && PRICES[formData.offre]
       ? PRICES[formData.offre] * formData.quantity
       : 0;
-
-  // SUPPRIMEZ TOUTE LA FONCTION DE DÉBOGAGE ET LE USEEFFECT
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -41,18 +35,13 @@ const Reservation = () => {
       return;
     }
 
-    const formattedOffre =
-      formData.offre.charAt(0).toUpperCase() + formData.offre.slice(1);
-
     const data = {
       username: formData.username,
       email: user.email,
       date: formData.date,
-      offre: formattedOffre,
-      quantity: parseInt(formData.quantity),
+      offre: formData.offre,
+      quantity: parseInt(formData.quantity, 10),
     };
-
-    console.log(' Données envoyées:', data);
 
     try {
       const response = await fetch('http://127.0.0.1:8000/reservations/', {
@@ -66,7 +55,6 @@ const Reservation = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error(' Erreur API:', errorData);
         alert(
           'Erreur lors de la réservation : ' +
             (errorData.detail || 'Erreur inconnue')
@@ -74,13 +62,12 @@ const Reservation = () => {
         return;
       }
 
-      const result = await response.json();
-      console.log('Réservation réussie:', result);
-      alert('Réservation réussie ');
-      navigate('/dashboard');
+      await response.json();
+      alert('Réservation créée avec succès 🎉');
+      navigate('/mes-reservations');
     } catch (err) {
-      console.error(' Erreur réseau:', err);
-      alert('Erreur réseau ');
+      console.error('Erreur réseau:', err);
+      alert('Erreur réseau');
     }
   };
 

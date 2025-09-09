@@ -4,76 +4,49 @@ from database import get_db, SECRET_KEY, ALGORITHM
 import models
 from jose import JWTError, jwt
 from fastapi.security import OAuth2PasswordBearer
-from datetime import datetime
 from typing import List
-import qrcode
-import io
-import base64
 from pydantic import BaseModel
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 router = APIRouter()
 
-# Vérifier si l'utilisateur est admin 
 def get_admin_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
         user = db.query(models.User).filter(models.User.email == email).first()
-
         if not user or not user.is_admin:
             raise HTTPException(status_code=403, detail="Accès administrateur requis")
         return user
     except JWTError:
         raise HTTPException(status_code=401, detail="Token invalide")
 
-# Schéma pour les statistiques
 class AdminStats(BaseModel):
     total_reservations: int
     pending_reservations: int
     total_users: int
     revenue: float
 
-# Dans admin.py, ajoutez cette fonction avant get_admin_stats
 def calculate_price(offre, quantity):
-    prices = {
-        "Solo": 25,
-        "Duo": 50, 
-        "Familiale": 150
-    }
+    prices = {"Solo": 25, "Duo": 50, "Familiale": 150}
     return prices.get(offre, 25) * quantity
 
-# Modifiez la fonction get_admin_stats
 @router.get("/stats", response_model=AdminStats)
-def get_admin_stats(
-    db: Session = Depends(get_db),
-    admin_user: models.User = Depends(get_admin_user)
-):
+def get_admin_stats(db: Session = Depends(get_db), admin_user: models.User = Depends(get_admin_user)):
     total_reservations = db.query(models.Reservation).count()
-    pending_reservations = db.query(models.Reservation).filter(
-        models.Reservation.status == "pending"
-    ).count()
+    pending_reservations = db.query(models.Reservation).filter(models.Reservation.status == "pending").count()
     total_users = db.query(models.User).count()
-    
-    # Calcul du revenue basé sur le type d'offre
-    approved_reservations = db.query(models.Reservation).filter(
-        models.Reservation.status == "approved"
-    ).all()
-    
+    approved_reservations = db.query(models.Reservation).filter(models.Reservation.status == "approved").all()
     revenue = sum(calculate_price(r.offre, r.quantity) for r in approved_reservations)
-    
     return {
         "total_reservations": total_reservations,
         "pending_reservations": pending_reservations,
         "total_users": total_users,
-        "revenue": revenue
+        "revenue": revenue,
     }
 
 @router.get("/reservations/all", response_model=List[dict])
-def get_all_reservations(
-    db: Session = Depends(get_db),
-    admin_user: models.User = Depends(get_admin_user)
-):
+def get_all_reservations(db: Session = Depends(get_db), admin_user: models.User = Depends(get_admin_user)):
     reservations = db.query(models.Reservation).all()
     return [
         {
@@ -83,122 +56,48 @@ def get_all_reservations(
             "date": r.date.isoformat() if r.date else None,
             "offre": r.offre,
             "quantity": r.quantity,
-            "status": getattr(r, 'status', 'pending')
+            "status": getattr(r, "status", "pending"),
         }
         for r in reservations
     ]
 
-@router.get("/reservations/{reservation_id}/qrcode")
-def generate_qrcode(
-    reservation_id: int,
-    db: Session = Depends(get_db),
-    admin_user: models.User = Depends(get_admin_user)
-):
-    reservation = db.query(models.Reservation).filter(
-        models.Reservation.id == reservation_id
-    ).first()
-    
-    if not reservation:
-        raise HTTPException(status_code=404, detail="Réservation non trouvée")
-    
-    # Création des données sécurisées pour le QR code
-    qr_data = f"OLYMPIC2024:{reservation.id}:{reservation.user_id}:{reservation.email}:{reservation.date}"
-    
-    # Création du QR code
-    qr = qrcode.QRCode(version=1, box_size=10, border=5)
-    qr.add_data(qr_data)
-    qr.make(fit=True)
-    
-    img = qr.make_image(fill_color="black", back_color="white")
-    
-    # Conversion en base64
-    buffered = io.BytesIO()
-    img.save(buffered, format="PNG")
-    img_str = base64.b64encode(buffered.getvalue()).decode()
-    
-    return {
-        "qrcode": f"data:image/png;base64,{img_str}",
-        "reservation_id": reservation_id
-    }
-
 @router.post("/reservations/{reservation_id}/approve")
-def approve_reservation(
-    reservation_id: int,
-    db: Session = Depends(get_db),
-    admin_user: models.User = Depends(get_admin_user)
-):
-    reservation = db.query(models.Reservation).filter(
-        models.Reservation.id == reservation_id
-    ).first()
-    
+def approve_reservation(reservation_id: int, db: Session = Depends(get_db), admin_user: models.User = Depends(get_admin_user)):
+    reservation = db.query(models.Reservation).filter(models.Reservation.id == reservation_id).first()
     if not reservation:
         raise HTTPException(status_code=404, detail="Réservation non trouvée")
-    
     reservation.status = "approved"
     db.commit()
     db.refresh(reservation)
-    
     return {"message": "Réservation approuvée avec succès", "reservation": reservation}
 
 @router.post("/reservations/{reservation_id}/reject")
-def reject_reservation(
-    reservation_id: int,
-    db: Session = Depends(get_db),
-    admin_user: models.User = Depends(get_admin_user)
-):
-    reservation = db.query(models.Reservation).filter(
-        models.Reservation.id == reservation_id
-    ).first()
-    
+def reject_reservation(reservation_id: int, db: Session = Depends(get_db), admin_user: models.User = Depends(get_admin_user)):
+    reservation = db.query(models.Reservation).filter(models.Reservation.id == reservation_id).first()
     if not reservation:
         raise HTTPException(status_code=404, detail="Réservation non trouvée")
-    
     reservation.status = "rejected"
     db.commit()
     db.refresh(reservation)
-    
     return {"message": "Réservation rejetée avec succès", "reservation": reservation}
 
-    # ... [votre code existant] ...
-
 @router.put("/reservations/{reservation_id}")
-def update_reservation(
-    reservation_id: int,
-    reservation_data: dict,
-    db: Session = Depends(get_db),
-    admin_user: models.User = Depends(get_admin_user)
-):
-    reservation = db.query(models.Reservation).filter(
-        models.Reservation.id == reservation_id
-    ).first()
-    
+def update_reservation(reservation_id: int, reservation_data: dict, db: Session = Depends(get_db), admin_user: models.User = Depends(get_admin_user)):
+    reservation = db.query(models.Reservation).filter(models.Reservation.id == reservation_id).first()
     if not reservation:
         raise HTTPException(status_code=404, detail="Réservation non trouvée")
-    
-    # Mettre à jour les champs
     for key, value in reservation_data.items():
         if hasattr(reservation, key):
             setattr(reservation, key, value)
-    
     db.commit()
     db.refresh(reservation)
-    
     return {"message": "Réservation modifiée avec succès", "reservation": reservation}
 
 @router.delete("/reservations/{reservation_id}")
-def delete_reservation(
-    reservation_id: int,
-    db: Session = Depends(get_db),
-    admin_user: models.User = Depends(get_admin_user)
-):
-    reservation = db.query(models.Reservation).filter(
-        models.Reservation.id == reservation_id
-    ).first()
-    
+def delete_reservation(reservation_id: int, db: Session = Depends(get_db), admin_user: models.User = Depends(get_admin_user)):
+    reservation = db.query(models.Reservation).filter(models.Reservation.id == reservation_id).first()
     if not reservation:
         raise HTTPException(status_code=404, detail="Réservation non trouvée")
-    
     db.delete(reservation)
     db.commit()
-    
     return {"message": "Réservation supprimée avec succès"}

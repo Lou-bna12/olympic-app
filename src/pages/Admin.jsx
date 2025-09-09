@@ -1,24 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import QRCodeModal from '../components/QRCodeModal';
 import {
   getAdminStats,
   getAllReservations,
   approveReservation as apiApproveReservation,
   rejectReservation as apiRejectReservation,
   deleteReservation as apiDeleteReservation,
-  generateQRCode as apiGenerateQRCode,
   updateReservation as apiUpdateReservation,
 } from '../services/api';
 
 const Admin = () => {
   const [reservations, setReservations] = useState([]);
   const [stats, setStats] = useState(null);
-  const [qrCodeData, setQrCodeData] = useState(null);
   const [editingReservation, setEditingReservation] = useState(null);
   const [loading, setLoading] = useState({
     reservations: true,
     stats: true,
-    qrCode: false,
     approval: false,
     delete: false,
     update: false,
@@ -26,17 +22,11 @@ const Admin = () => {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  // Fonction pour calculer le prix selon l'offre
   const calculatePrice = (offre, quantity) => {
-    const prices = {
-      Solo: 25,
-      Duo: 50,
-      Familiale: 150,
-    };
+    const prices = { Solo: 25, Duo: 50, Familiale: 150 };
     return (prices[offre] || 70) * quantity;
   };
 
-  // Charger les données
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -54,7 +44,6 @@ const Admin = () => {
         console.error('Erreur:', error);
         setError('Erreur lors du chargement des données administrateur');
 
-        // Redirection si non autorisé
         if (error.response?.status === 403 || error.response?.status === 401) {
           localStorage.removeItem('token');
           localStorage.removeItem('user');
@@ -68,23 +57,6 @@ const Admin = () => {
     loadData();
   }, []);
 
-  // Fonction pour générer le QR code
-  const generateQRCode = async (reservationId) => {
-    setLoading((prev) => ({ ...prev, qrCode: true }));
-    setError('');
-
-    try {
-      const data = await apiGenerateQRCode(reservationId);
-      setQrCodeData(data);
-    } catch (error) {
-      console.error('Erreur:', error);
-      setError('Erreur lors de la génération du QR code');
-    } finally {
-      setLoading((prev) => ({ ...prev, qrCode: false }));
-    }
-  };
-
-  // Fonction pour approuver une réservation
   const approveReservation = async (reservationId) => {
     setLoading((prev) => ({ ...prev, approval: true }));
     setError('');
@@ -102,7 +74,6 @@ const Admin = () => {
     }
   };
 
-  // Fonction pour rejeter une réservation
   const rejectReservation = async (reservationId) => {
     setLoading((prev) => ({ ...prev, approval: true }));
     setError('');
@@ -120,7 +91,6 @@ const Admin = () => {
     }
   };
 
-  // Fonction pour supprimer une réservation
   const deleteReservation = async (reservationId) => {
     if (
       !window.confirm('Êtes-vous sûr de vouloir supprimer cette réservation ?')
@@ -144,7 +114,6 @@ const Admin = () => {
     }
   };
 
-  // FONCTION MANQUANTE : Modification d'une réservation
   const updateReservation = async (reservationId, updatedData) => {
     setLoading((prev) => ({ ...prev, update: true }));
     setError('');
@@ -163,16 +132,13 @@ const Admin = () => {
     }
   };
 
-  // Rafraîchir les données
   const refreshData = async () => {
     try {
       setLoading((prev) => ({ ...prev, reservations: true, stats: true }));
-
       const [statsData, reservationsData] = await Promise.all([
         getAdminStats(),
         getAllReservations(),
       ]);
-
       setStats(statsData);
       setReservations(reservationsData);
     } catch (error) {
@@ -183,7 +149,6 @@ const Admin = () => {
     }
   };
 
-  // Formulaire de modification
   const EditReservationForm = ({ reservation, onSave, onCancel }) => {
     const [formData, setFormData] = useState({
       username: reservation.username,
@@ -198,7 +163,6 @@ const Admin = () => {
       calculatePrice(reservation.offre, reservation.quantity)
     );
 
-    // Recalculer le prix quand l'offre ou la quantité change
     useEffect(() => {
       setPrice(calculatePrice(formData.offre, formData.quantity));
     }, [formData.offre, formData.quantity]);
@@ -314,9 +278,12 @@ const Admin = () => {
                     className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                     required
                   >
-                    <option value="pending">En attente</option>
-                    <option value="approved">Approuvé</option>
-                    <option value="rejected">Rejeté</option>
+                    <option value="pending_payment">
+                      En attente de paiement
+                    </option>
+                    <option value="confirmed">Confirmée</option>
+                    <option value="approved">Approuvée</option>
+                    <option value="rejected">Rejetée</option>
                   </select>
                 </div>
               </div>
@@ -368,7 +335,6 @@ const Admin = () => {
         </div>
       )}
 
-      {/* Statistiques */}
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow p-6">
@@ -406,7 +372,6 @@ const Admin = () => {
         </div>
       )}
 
-      {/* Liste des réservations */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-xl font-semibold">Toutes les réservations</h2>
@@ -451,10 +416,8 @@ const Admin = () => {
                   reservation.offre,
                   reservation.quantity
                 );
-
-                const displayStatus = reservation.status || 'pending';
-                const isPending =
-                  displayStatus === 'pending' || displayStatus === 'confirmée';
+                const displayStatus = reservation.status || 'pending_payment';
+                const isPending = displayStatus === 'pending_payment';
 
                 return (
                   <tr key={reservation.id}>
@@ -482,7 +445,8 @@ const Admin = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
                         className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          displayStatus === 'approved'
+                          displayStatus === 'approved' ||
+                          displayStatus === 'confirmed'
                             ? 'bg-green-100 text-green-800'
                             : displayStatus === 'rejected'
                             ? 'bg-red-100 text-red-800'
@@ -491,23 +455,14 @@ const Admin = () => {
                       >
                         {displayStatus === 'approved'
                           ? 'Approuvée'
+                          : displayStatus === 'confirmed'
+                          ? 'Confirmée'
                           : displayStatus === 'rejected'
                           ? 'Rejetée'
                           : 'En attente'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                      <button
-                        onClick={() => generateQRCode(reservation.id)}
-                        disabled={
-                          loading.qrCode || displayStatus !== 'approved'
-                        }
-                        className="text-blue-600 hover:text-blue-900 disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Générer QR Code"
-                      >
-                        📷
-                      </button>
-
                       {isPending && (
                         <>
                           <button
@@ -561,15 +516,6 @@ const Admin = () => {
         )}
       </div>
 
-      {/* Modal pour afficher le QR code */}
-      {qrCodeData && (
-        <QRCodeModal
-          qrCodeData={qrCodeData}
-          onClose={() => setQrCodeData(null)}
-        />
-      )}
-
-      {/* Formulaire de modification */}
       {editingReservation && (
         <EditReservationForm
           reservation={editingReservation}
