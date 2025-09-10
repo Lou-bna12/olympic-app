@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   getAdminStats,
   getAllReservations,
@@ -22,35 +22,76 @@ const Admin = () => {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  const calculatePrice = (offre, quantity) => {
-    const prices = { Solo: 25, Duo: 50, Familiale: 150 };
-    return (prices[offre] || 70) * quantity;
-  };
+  // Utilisation de useCallback pour mémoriser la fonction
+  const calculatePrice = useCallback((offre, quantity) => {
+    const pricesMap = { Solo: 25, Duo: 50, Familiale: 150 };
+    return (pricesMap[offre] ?? 70) * (quantity ?? 1);
+  }, []); // Aucune dépendance car la fonction est statique
+
+  //Fallback local si l'API /admin/stats ne renvoie rien
+  const computed = useMemo(() => {
+    if (!Array.isArray(reservations)) {
+      return {
+        totalReservations: 0,
+        pendingReservations: 0,
+        totalUsers: 0,
+        revenue: 0,
+      };
+    }
+    const totalReservations = reservations.length;
+    const pendingReservations = reservations.filter(
+      (r) => (r.status || 'pending_payment') === 'pending_payment'
+    ).length;
+
+    // on calcule un totalUsers minimal à partir des emails (ou usernames)
+    const uniqueEmails = new Set(
+      reservations.map((r) => r.email).filter(Boolean)
+    );
+    const uniqueUsernames = new Set(
+      reservations.map((r) => r.username).filter(Boolean)
+    );
+    const totalUsers = Math.max(uniqueEmails.size, uniqueUsernames.size);
+
+    // on additionne le CA uniquement sur confirmed/approved
+    const revenue = reservations.reduce((sum, r) => {
+      const st = r.status || 'pending_payment';
+      return ['approved', 'confirmed'].includes(st)
+        ? sum + calculatePrice(r.offre, r.quantity)
+        : sum;
+    }, 0);
+
+    return { totalReservations, pendingReservations, totalUsers, revenue };
+  }, [reservations, calculatePrice]);
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        setLoading((prev) => ({ ...prev, reservations: true, stats: true }));
+        setLoading((p) => ({ ...p, reservations: true, stats: true }));
         setError('');
 
-        const [statsData, reservationsData] = await Promise.all([
-          getAdminStats(),
+        const [statsData, reservationsData] = await Promise.allSettled([
+          getAdminStats(), // peut échouer → on utilisera computed
           getAllReservations(),
         ]);
 
-        setStats(statsData);
-        setReservations(reservationsData);
-      } catch (error) {
-        console.error('Erreur:', error);
-        setError('Erreur lors du chargement des données administrateur');
-
-        if (error.response?.status === 403 || error.response?.status === 401) {
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          window.location.href = '/login?error=admin_required';
+        if (reservationsData.status === 'fulfilled') {
+          setReservations(reservationsData.value || []);
+        } else {
+          setReservations([]);
         }
+
+        if (statsData.status === 'fulfilled') {
+          setStats(statsData.value || null);
+        } else {
+          setStats(null); // forcera l'usage du fallback
+        }
+      } catch (e) {
+        console.error('Erreur:', e);
+        setError('Erreur lors du chargement des données administrateur');
+        // si 401/403, on peut rediriger :
+        // window.location.href = '/login?error=admin_required';
       } finally {
-        setLoading((prev) => ({ ...prev, reservations: false, stats: false }));
+        setLoading((p) => ({ ...p, reservations: false, stats: false }));
       }
     };
 
@@ -58,94 +99,94 @@ const Admin = () => {
   }, []);
 
   const approveReservation = async (reservationId) => {
-    setLoading((prev) => ({ ...prev, approval: true }));
+    setLoading((p) => ({ ...p, approval: true }));
     setError('');
     setSuccessMessage('');
-
     try {
       await apiApproveReservation(reservationId);
       setSuccessMessage('Réservation approuvée avec succès!');
-      refreshData();
-    } catch (error) {
-      console.error('Erreur:', error);
+      await refreshData();
+    } catch (e) {
+      console.error('Erreur:', e);
       setError("Erreur lors de l'approbation de la réservation");
     } finally {
-      setLoading((prev) => ({ ...prev, approval: false }));
+      setLoading((p) => ({ ...p, approval: false }));
     }
   };
 
   const rejectReservation = async (reservationId) => {
-    setLoading((prev) => ({ ...prev, approval: true }));
+    setLoading((p) => ({ ...p, approval: true }));
     setError('');
     setSuccessMessage('');
-
     try {
       await apiRejectReservation(reservationId);
       setSuccessMessage('Réservation rejetée avec succès!');
-      refreshData();
-    } catch (error) {
-      console.error('Erreur:', error);
+      await refreshData();
+    } catch (e) {
+      console.error('Erreur:', e);
       setError('Erreur lors du rejet de la réservation');
     } finally {
-      setLoading((prev) => ({ ...prev, approval: false }));
+      setLoading((p) => ({ ...p, approval: false }));
     }
   };
 
   const deleteReservation = async (reservationId) => {
     if (
       !window.confirm('Êtes-vous sûr de vouloir supprimer cette réservation ?')
-    ) {
+    )
       return;
-    }
-
-    setLoading((prev) => ({ ...prev, delete: true }));
+    setLoading((p) => ({ ...p, delete: true }));
     setError('');
     setSuccessMessage('');
-
     try {
       await apiDeleteReservation(reservationId);
       setSuccessMessage('Réservation supprimée avec succès!');
-      refreshData();
-    } catch (error) {
-      console.error('Erreur:', error);
+      await refreshData();
+    } catch (e) {
+      console.error('Erreur:', e);
       setError('Erreur lors de la suppression de la réservation');
     } finally {
-      setLoading((prev) => ({ ...prev, delete: false }));
+      setLoading((p) => ({ ...p, delete: false }));
     }
   };
 
   const updateReservation = async (reservationId, updatedData) => {
-    setLoading((prev) => ({ ...prev, update: true }));
+    setLoading((p) => ({ ...p, update: true }));
     setError('');
     setSuccessMessage('');
-
     try {
       await apiUpdateReservation(reservationId, updatedData);
       setSuccessMessage('Réservation modifiée avec succès!');
       setEditingReservation(null);
-      refreshData();
-    } catch (error) {
-      console.error('Erreur:', error);
+      await refreshData();
+    } catch (e) {
+      console.error('Erreur:', e);
       setError('Erreur lors de la modification de la réservation');
     } finally {
-      setLoading((prev) => ({ ...prev, update: false }));
+      setLoading((p) => ({ ...p, update: false }));
     }
   };
 
   const refreshData = async () => {
     try {
-      setLoading((prev) => ({ ...prev, reservations: true, stats: true }));
-      const [statsData, reservationsData] = await Promise.all([
+      setLoading((p) => ({ ...p, reservations: true, stats: true }));
+      const [statsData, reservationsData] = await Promise.allSettled([
         getAdminStats(),
         getAllReservations(),
       ]);
-      setStats(statsData);
-      setReservations(reservationsData);
-    } catch (error) {
-      console.error('Erreur:', error);
+      if (reservationsData.status === 'fulfilled') {
+        setReservations(reservationsData.value || []);
+      }
+      if (statsData.status === 'fulfilled') {
+        setStats(statsData.value || null);
+      } else {
+        setStats(null);
+      }
+    } catch (e) {
+      console.error('Erreur:', e);
       setError('Erreur lors du rafraîchissement des données');
     } finally {
-      setLoading((prev) => ({ ...prev, reservations: false, stats: false }));
+      setLoading((p) => ({ ...p, reservations: false, stats: false }));
     }
   };
 
@@ -319,6 +360,14 @@ const Admin = () => {
     );
   }
 
+  //  Choix de la source d'affichage (API si dispo, sinon fallback local)
+  const totalReservations =
+    stats?.total_reservations ?? computed.totalReservations;
+  const pendingReservations =
+    stats?.pending_reservations ?? computed.pendingReservations;
+  const totalUsers = stats?.total_users ?? computed.totalUsers;
+  const revenue = stats?.revenue ?? computed.revenue;
+
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">Espace Administrateur</h1>
@@ -335,42 +384,36 @@ const Admin = () => {
         </div>
       )}
 
-      {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-600">
-              Total des réservations
-            </h3>
-            <p className="text-3xl font-bold text-blue-600">
-              {stats.total_reservations}
-            </p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-600">
-              Réservations en attente
-            </h3>
-            <p className="text-3xl font-bold text-yellow-600">
-              {stats.pending_reservations}
-            </p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-600">
-              Utilisateurs inscrits
-            </h3>
-            <p className="text-3xl font-bold text-green-600">
-              {stats.total_users}
-            </p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-600">
-              Revenus totaux
-            </h3>
-            <p className="text-3xl font-bold text-purple-600">
-              {stats.revenue} €
-            </p>
-          </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-semibold text-gray-600">
+            Total des réservations
+          </h3>
+          <p className="text-3xl font-bold text-blue-600">
+            {totalReservations}
+          </p>
         </div>
-      )}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-semibold text-gray-600">
+            Réservations en attente
+          </h3>
+          <p className="text-3xl font-bold text-yellow-600">
+            {pendingReservations}
+          </p>
+        </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-semibold text-gray-600">
+            Utilisateurs inscrits
+          </h3>
+          <p className="text-3xl font-bold text-green-600">{totalUsers}</p>
+        </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-semibold text-gray-600">
+            Revenus totaux
+          </h3>
+          <p className="text-3xl font-bold text-purple-600">{revenue} €</p>
+        </div>
+      </div>
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
@@ -381,31 +424,31 @@ const Admin = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   ID
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Nom
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Email
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Date
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Offre
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Quantité
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Prix
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Statut
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Actions
                 </th>
               </tr>
@@ -468,7 +511,7 @@ const Admin = () => {
                           <button
                             onClick={() => approveReservation(reservation.id)}
                             disabled={loading.approval}
-                            className="text-green-600 hover:text-green-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="text-green-600 hover:text-green-900 disabled:opacity-50"
                             title="Approuver"
                           >
                             ✓
@@ -476,27 +519,25 @@ const Admin = () => {
                           <button
                             onClick={() => rejectReservation(reservation.id)}
                             disabled={loading.approval}
-                            className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="text-red-600 hover:text-red-900 disabled:opacity-50"
                             title="Rejeter"
                           >
                             ✗
                           </button>
                         </>
                       )}
-
                       <button
                         onClick={() => setEditingReservation(reservation)}
                         disabled={loading.update}
-                        className="text-yellow-600 hover:text-yellow-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="text-yellow-600 hover:text-yellow-900 disabled:opacity-50"
                         title="Modifier"
                       >
                         ✏️
                       </button>
-
                       <button
                         onClick={() => deleteReservation(reservation.id)}
                         disabled={loading.delete}
-                        className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="text-red-600 hover:text-red-900 disabled:opacity-50"
                         title="Supprimer"
                       >
                         🗑️

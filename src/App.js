@@ -15,6 +15,7 @@ import Admin from './pages/Admin';
 import Logout from './components/Logout';
 import Header from './components/Header';
 import Footer from './components/Footer';
+import MyTickets from './components/MyTickets.jsx';
 
 import { useAuth } from './context/AuthContext';
 
@@ -127,7 +128,7 @@ const App = () => {
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-        {/* Routes protégées (utilisateur connecté) */}
+
         <Route
           path="/dashboard"
           element={
@@ -144,6 +145,15 @@ const App = () => {
             </RequireAuth>
           }
         />
+
+        <Route
+          path="/mes-tickets"
+          element={
+            <RequireAuth>
+              <MyTickets />
+            </RequireAuth>
+          }
+        />
         <Route
           path="/logout"
           element={
@@ -152,7 +162,7 @@ const App = () => {
             </RequireAuth>
           }
         />
-        {/* Routes admin (utilisateur admin) */}
+
         <Route
           path="/admin/*"
           element={
@@ -161,14 +171,12 @@ const App = () => {
             </AdminRoute>
           }
         />
-        {/* Page 404 personnalisée */}
+
         <Route path="*" element={<PageNotFound />} />
       </Routes>
 
-      {/* Footer affiché sauf sur certaines pages */}
       {afficherFooter && <Footer />}
 
-      {/* Bannière de gestion des cookies */}
       <CookieBanner />
     </>
   );

@@ -41,7 +41,7 @@ class Reservation(Base):
     date = Column(Date)
     offre = Column(String(50))
     quantity = Column(Integer)
-    status = Column(String(20), default="confirmée")
+    status = Column(String(20), default="pending_payment")
     user_id = Column(Integer, ForeignKey("users.id"))
     
     # Relation

@@ -7,14 +7,12 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// token -> header
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// 401 -> logout
 api.interceptors.response.use(
   (res) => res,
   (error) => {
@@ -27,7 +25,7 @@ api.interceptors.response.use(
   }
 );
 
-//Auth
+// Auth
 export async function login(email, password) {
   const { data } = await api.post('/auth/login', { email, password });
   return data;
@@ -39,7 +37,7 @@ export async function register(username, email, password) {
     email,
     password,
   });
-  return data; // user créé
+  return data;
 }
 
 export async function getProfile() {
@@ -47,7 +45,7 @@ export async function getProfile() {
   return data;
 }
 
-//Réservations (utilisateur)
+// Réservations
 export async function getMyReservations() {
   const { data } = await api.get('/reservations/me');
   return data;
@@ -58,24 +56,24 @@ export async function createReservation(payload) {
   return data;
 }
 
-// stats perso (utilisé par Dashboard via fetch direct, dispo ici au besoin)
 export async function getReservationStats() {
   const { data } = await api.get('/reservations/stats');
   return data;
 }
 
-//Tickets (utilisateur)
-
+// Tickets
 export async function getMyTickets() {
-  try {
-    const { data } = await api.get('/tickets/me');
-    return data;
-  } catch {
-    return [];
-  }
+  const { data } = await api.get('/tickets/me');
+  return data;
 }
 
-//Admin
+// Paiement mock
+export async function simulatePayment(ticketId) {
+  const { data } = await api.post('/payment/simulate', { ticket_id: ticketId });
+  return data;
+}
+
+// ---------- Admin ----------
 export async function getAdminStats() {
   const { data } = await api.get('/admin/stats');
   return data;

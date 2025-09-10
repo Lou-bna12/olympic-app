@@ -13,7 +13,6 @@ import { useNavigate } from 'react-router-dom';
 
 const MesReservations = () => {
   const [reservations, setReservations] = useState([]);
-  const [pendingPayments, setPendingPayments] = useState([]);
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
@@ -40,7 +39,6 @@ const MesReservations = () => {
 
   useEffect(() => {
     fetchReservations();
-    fetchPendingReservations();
     fetchStats();
   }, []);
 
@@ -54,25 +52,6 @@ const MesReservations = () => {
       if (response.ok) {
         const data = await response.json();
         setReservations(data);
-      }
-    } catch (error) {
-      console.error('Erreur:', error);
-    }
-  };
-
-  const fetchPendingReservations = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        'http://127.0.0.1:8000/reservations/me/pending',
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        setPendingPayments(data);
       }
     } catch (error) {
       console.error('Erreur:', error);
@@ -155,7 +134,6 @@ const MesReservations = () => {
 
       if (response.ok) {
         setReservations(reservations.filter((r) => r.id !== reservationId));
-        fetchPendingReservations();
         fetchStats();
         alert('Réservation supprimée avec succès');
       }
@@ -195,12 +173,7 @@ const MesReservations = () => {
       );
 
       if (response.ok) {
-        const updatedReservation = await response.json();
-        setReservations(
-          reservations.map((r) =>
-            r.id === reservationId ? updatedReservation : r
-          )
-        );
+        fetchReservations();
         setEditingId(null);
         alert('Réservation modifiée avec succès');
       }
@@ -218,8 +191,10 @@ const MesReservations = () => {
   const processPayment = async () => {
     try {
       const token = localStorage.getItem('token');
+
+      // CORRECTION : Utilisez l'endpoint de paiement pour les réservations
       const response = await fetch(
-        'http://127.0.0.1:8000/reservations/payment',
+        'http://127.0.0.1:8000/reservations/payment/simulate',
         {
           method: 'POST',
           headers: {
@@ -227,8 +202,7 @@ const MesReservations = () => {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            reservation_id: selectedReservation.id,
-            ...paymentForm,
+            reservation_id: selectedReservation.id, // Changez ticket_id en reservation_id
           }),
         }
       );
@@ -236,12 +210,13 @@ const MesReservations = () => {
       if (response.ok) {
         alert('Paiement effectué avec succès!');
         setShowPaymentModal(false);
-        // Recharger les données
         fetchReservations();
-        fetchPendingReservations();
         fetchStats();
       } else {
-        alert('Erreur lors du paiement');
+        const errorData = await response.json();
+        alert(
+          `Erreur lors du paiement: ${errorData.detail || 'Erreur inconnue'}`
+        );
       }
     } catch (error) {
       console.error('Erreur paiement:', error);
@@ -288,55 +263,118 @@ const MesReservations = () => {
               <div className="text-2xl font-bold text-green-600">
                 {stats.active_reservations || 0}
               </div>
-              <div className="text-sm text-gray-600">Tickets</div>
+              <div className="text-sm text-gray-600">Actives</div>
             </div>
             <div className="text-center p-4 bg-yellow-50 rounded-lg">
               <div className="text-2xl font-bold text-yellow-600">
-                {stats.pending_payments || 0}
+                {reservations.filter((r) => r.status === 'pending_payment')
+                  .length || 0}
               </div>
               <div className="text-sm text-gray-600">À payer</div>
             </div>
             <div className="text-center p-4 bg-purple-50 rounded-lg">
               <div className="text-2xl font-bold text-purple-600">
-                {stats.total_spent || 0}€
+                {reservations.reduce(
+                  (total, r) => total + calculatePrice(r.offre, r.quantity),
+                  0
+                )}
+                €
               </div>
-              <div className="text-sm text-gray-600">Dépensés</div>
+              <div className="text-sm text-gray-600">Total</div>
             </div>
           </div>
-
-          {stats.next_reservation_date && (
-            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-              <h3 className="font-semibold text-gray-800">
-                Prochaine Réservation
-              </h3>
-              <p className="text-gray-600">
-                {new Date(stats.next_reservation_date).toLocaleDateString(
-                  'fr-FR'
-                )}
-              </p>
-              <p className="text-gray-600">
-                Offre: {stats.next_reservation_offre}
-              </p>
-            </div>
-          )}
         </div>
 
-        {/* Section Paiements en attente */}
-        {pendingPayments.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">
-              Paiements en attente
+        {/* Section Réservations */}
+        {reservations.length === 0 ? (
+          <div className="bg-white rounded-lg shadow p-6 text-center">
+            <p className="text-gray-600">Aucune réservation trouvée.</p>
+          </div>
+        ) : (
+          <div className="grid gap-6">
+            <h2 className="text-2xl font-bold text-gray-800">
+              Mes Réservations
             </h2>
-            <div className="grid gap-6">
-              {pendingPayments.map((reservation) => (
-                <div
-                  key={reservation.id}
-                  className="bg-yellow-50 border border-yellow-200 rounded-lg p-6"
-                >
+            {reservations.map((reservation) => (
+              <div
+                key={reservation.id}
+                className="bg-white rounded-lg shadow p-6"
+              >
+                {editingId === reservation.id ? (
+                  // Mode édition
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          Date
+                        </label>
+                        <input
+                          type="date"
+                          value={editForm.date}
+                          onChange={(e) =>
+                            setEditForm({ ...editForm, date: e.target.value })
+                          }
+                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          Offre
+                        </label>
+                        <select
+                          value={editForm.offre}
+                          onChange={(e) =>
+                            setEditForm({
+                              ...editForm,
+                              offre: e.target.value,
+                            })
+                          }
+                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                        >
+                          <option value="Solo">Solo</option>
+                          <option value="Duo">Duo</option>
+                          <option value="Familiale">Familiale</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          Quantité
+                        </label>
+                        <input
+                          type="number"
+                          value={editForm.quantity}
+                          onChange={(e) =>
+                            setEditForm({
+                              ...editForm,
+                              quantity: parseInt(e.target.value),
+                            })
+                          }
+                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
+                          min="1"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => saveEdit(reservation.id)}
+                        className="bg-green-600 text-white px-4 py-2 rounded-md flex items-center gap-2"
+                      >
+                        <FiCheck className="w-4 h-4" /> Enregistrer
+                      </button>
+                      <button
+                        onClick={cancelEditing}
+                        className="bg-gray-600 text-white px-4 py-2 rounded-md flex items-center gap-2"
+                      >
+                        <FiX className="w-4 h-4" /> Annuler
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  // Mode affichage
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex-1">
                       <h3 className="text-lg font-semibold text-gray-800">
-                        Réservation #{reservation.id} - En attente de paiement
+                        Réservation #{reservation.id}
                       </h3>
                       <p className="text-gray-600">
                         Date:{' '}
@@ -356,167 +394,51 @@ const MesReservations = () => {
                         )}{' '}
                         €
                       </p>
+                      <p className="text-gray-600">
+                        Statut: {reservation.status}
+                      </p>
                     </div>
-                    <button
-                      onClick={() => openPaymentModal(reservation)}
-                      className="bg-green-600 text-white px-4 py-2 rounded-md flex items-center gap-2"
-                    >
-                      <FiDollarSign className="w-4 h-4" /> Payer maintenant
-                    </button>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => generateQRCode(reservation.id)}
+                        className="bg-blue-600 text-white px-3 py-2 rounded-md flex items-center gap-2"
+                        title="Télécharger QR Code"
+                      >
+                        <FiDownload className="w-4 h-4" /> QR
+                      </button>
+
+                      {/* Bouton de paiement */}
+                      {reservation.status === 'pending_payment' && (
+                        <button
+                          onClick={() => openPaymentModal(reservation)}
+                          className="bg-green-600 text-white px-3 py-2 rounded-md flex items-center gap-2"
+                          title="Payer"
+                        >
+                          <FiDollarSign className="w-4 h-4" /> Payer
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => startEditing(reservation)}
+                        className="bg-yellow-600 text-white px-3 py-2 rounded-md flex items-center gap-2"
+                        title="Modifier"
+                      >
+                        <FiEdit className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        onClick={() => deleteReservation(reservation.id)}
+                        className="bg-red-600 text-white px-3 py-2 rounded-md flex items-center gap-2"
+                        title="Supprimer"
+                      >
+                        <FiTrash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Section Réservations confirmées */}
-        {reservations.filter((r) => r.status === 'confirmed').length === 0 ? (
-          <div className="bg-white rounded-lg shadow p-6 text-center">
-            <p className="text-gray-600">Aucune réservation trouvée.</p>
-          </div>
-        ) : (
-          <div className="grid gap-6">
-            <h2 className="text-2xl font-bold text-gray-800">
-              Mes Réservations Confirmées
-            </h2>
-            {reservations
-              .filter((r) => r.status === 'confirmed')
-              .map((reservation) => (
-                <div
-                  key={reservation.id}
-                  className="bg-white rounded-lg shadow p-6"
-                >
-                  {editingId === reservation.id ? (
-                    // Mode édition
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">
-                            Date
-                          </label>
-                          <input
-                            type="date"
-                            value={editForm.date}
-                            onChange={(e) =>
-                              setEditForm({ ...editForm, date: e.target.value })
-                            }
-                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">
-                            Offre
-                          </label>
-                          <select
-                            value={editForm.offre}
-                            onChange={(e) =>
-                              setEditForm({
-                                ...editForm,
-                                offre: e.target.value,
-                              })
-                            }
-                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-                          >
-                            <option value="Solo">Solo</option>
-                            <option value="Duo">Duo</option>
-                            <option value="Familiale">Familiale</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">
-                            Quantité
-                          </label>
-                          <input
-                            type="number"
-                            value={editForm.quantity}
-                            onChange={(e) =>
-                              setEditForm({
-                                ...editForm,
-                                quantity: parseInt(e.target.value),
-                              })
-                            }
-                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
-                            min="1"
-                          />
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => saveEdit(reservation.id)}
-                          className="bg-green-600 text-white px-4 py-2 rounded-md flex items-center gap-2"
-                        >
-                          <FiCheck className="w-4 h-4" /> Enregistrer
-                        </button>
-                        <button
-                          onClick={cancelEditing}
-                          className="bg-gray-600 text-white px-4 py-2 rounded-md flex items-center gap-2"
-                        >
-                          <FiX className="w-4 h-4" /> Annuler
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    // Mode affichage
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                      <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-gray-800">
-                          Réservation #{reservation.id}
-                        </h3>
-                        <p className="text-gray-600">
-                          Date:{' '}
-                          {new Date(reservation.date).toLocaleDateString(
-                            'fr-FR'
-                          )}
-                        </p>
-                        <p className="text-gray-600">
-                          Offre: {reservation.offre}
-                        </p>
-                        <p className="text-gray-600">
-                          Quantité: {reservation.quantity}
-                        </p>
-                        <p className="text-gray-600">
-                          Prix:{' '}
-                          {calculatePrice(
-                            reservation.offre,
-                            reservation.quantity
-                          )}{' '}
-                          €
-                        </p>
-                        <p className="text-gray-600">
-                          Statut: {reservation.status || 'confirmée'}
-                        </p>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => generateQRCode(reservation.id)}
-                          className="bg-blue-600 text-white px-3 py-2 rounded-md flex items-center gap-2"
-                          title="Télécharger QR Code"
-                        >
-                          <FiDownload className="w-4 h-4" /> QR
-                        </button>
-
-                        <button
-                          onClick={() => startEditing(reservation)}
-                          className="bg-yellow-600 text-white px-3 py-2 rounded-md flex items-center gap-2"
-                          title="Modifier"
-                        >
-                          <FiEdit className="w-4 h-4" />
-                        </button>
-
-                        <button
-                          onClick={() => deleteReservation(reservation.id)}
-                          className="bg-red-600 text-white px-3 py-2 rounded-md flex items-center gap-2"
-                          title="Supprimer"
-                        >
-                          <FiTrash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                )}
+              </div>
+            ))}
           </div>
         )}
 

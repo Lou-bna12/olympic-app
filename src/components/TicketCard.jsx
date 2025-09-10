@@ -1,18 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Payment from './Payment';
 
 const TicketCard = ({ ticket, onUpdate }) => {
   const [showPayment, setShowPayment] = useState(false);
 
-  const handlePaymentSuccess = (result) => {
+  useEffect(() => {
+    console.log(`Ticket ${ticket.id} - showPayment:`, showPayment);
+  }, [showPayment, ticket.id]);
+
+  const handlePaymentSuccess = () => {
     setShowPayment(false);
-    onUpdate(); // Rafraîchir la liste des tickets
+    onUpdate();
   };
 
   return (
     <>
       <div className="bg-white rounded-lg shadow p-6 mb-4">
-        <h3 className="text-lg font-semibold mb-2">{ticket.offer_name}</h3>
+        <h3 className="text-lg font-semibold mb-2">Ticket #{ticket.id}</h3>
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
             <p className="text-sm text-gray-600">Prix</p>
@@ -32,13 +36,16 @@ const TicketCard = ({ ticket, onUpdate }) => {
           </div>
         </div>
 
-        {ticket.qr_code && (
-          <div className="mb-4">
+        {ticket.is_paid && ticket.qr_code && (
+          <div className="mb-4 text-center">
             <img
-              src={`data:image/png;base64,${ticket.qr_code}`}
+              src={ticket.qr_code}
               alt="QR Code"
-              className="w-32 h-32 mx-auto"
+              className="w-32 h-32 mx-auto border rounded"
             />
+            <p className="text-xs text-gray-500 mt-2">
+              Scannez ce QR code à l'entrée
+            </p>
           </div>
         )}
 
@@ -52,7 +59,7 @@ const TicketCard = ({ ticket, onUpdate }) => {
         )}
 
         {ticket.is_paid && ticket.payment_date && (
-          <p className="text-sm text-gray-600 mt-2">
+          <p className="text-sm text-gray-600 mt-2 text-center">
             Payé le {new Date(ticket.payment_date).toLocaleDateString('fr-FR')}
           </p>
         )}

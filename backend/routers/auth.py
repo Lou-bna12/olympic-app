@@ -14,9 +14,7 @@ router = APIRouter()
 # Config sécurité
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
-
 
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
@@ -48,8 +46,8 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     
     return user
 
-# Routes
 
+# ---------------- ROUTES ---------------- #
 
 # Register (création d'un utilisateur)
 @router.post("/register", response_model=schemas.UserOut)
@@ -65,6 +63,7 @@ def register(request: schemas.UserCreate, db: Session = Depends(get_db)):
     db.refresh(new_user)
 
     return new_user
+
 
 # Login
 @router.post("/login")
@@ -87,8 +86,15 @@ def login(request: schemas.UserLogin, db: Session = Depends(get_db)):
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
+
 # Obtenir infos utilisateur connecté 
 @router.get("/me", response_model=schemas.UserOut)
 def read_users_me(current_user: User = Depends(get_current_user)):
-    print(f"User data for /me: id={current_user.id}, email={current_user.email}, is_admin={current_user.is_admin}")
-    return current_user
+    return {
+        "id": current_user.id,
+        "username": current_user.username,
+        "email": current_user.email,
+        "is_admin": current_user.is_admin,
+        "created_at": current_user.created_at,
+        "updated_at": current_user.updated_at,
+    }

@@ -13,7 +13,7 @@ from io import BytesIO
 import base64
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
-router = APIRouter()
+router = APIRouter(tags=["reservations"])
 
 class ReservationRequest(BaseModel):
     username: str
@@ -29,6 +29,16 @@ class ReservationUpdate(BaseModel):
     offre: Optional[str] = None
     quantity: Optional[int] = None
 
+class PaymentSimulation(BaseModel):
+    reservation_id: int
+
+class PaymentResponse(BaseModel):
+    status: str
+    message: str
+    reservation_id: int
+    amount: float
+    payment_date: datetime
+
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -43,6 +53,14 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
     return user
 
+def calculate_price(offre, quantity):
+    prices = {
+        "Solo": 25,
+        "Duo": 50,
+        "Familiale": 150,
+    }
+    return prices.get(offre, 0) * quantity
+
 @router.post("/", response_model=dict)
 def create_reservation(
     request: ReservationRequest,
@@ -56,6 +74,7 @@ def create_reservation(
         offre=request.offre,
         quantity=request.quantity,
         user_id=current_user.id,
+        status="pending_payment"  # Ajout du statut initial
     )
     db.add(reservation)
     db.commit()
@@ -129,7 +148,43 @@ def delete_reservation(
     db.commit()
     return {"message": "Réservation supprimée avec succès 🗑️", "id": reservation_id}
 
-# ✅ QR code pour l'utilisateur (admin n'en a pas besoin)
+# ✅ Route de paiement pour les réservations
+@router.post("/payment/simulate", response_model=PaymentResponse)
+async def simulate_reservation_payment(
+    payment_data: PaymentSimulation,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Simule un paiement pour une réservation
+    """
+    reservation = db.query(models.Reservation).filter(
+        models.Reservation.id == payment_data.reservation_id,
+        models.Reservation.user_id == current_user.id
+    ).first()
+
+    if not reservation:
+        raise HTTPException(status_code=404, detail="Réservation non trouvée")
+
+    if reservation.status == "paid":
+        raise HTTPException(status_code=400, detail="Réservation déjà payée")
+
+    # Simulation du paiement
+    reservation.status = "paid"
+    reservation.payment_date = datetime.now()
+
+    db.commit()
+    db.refresh(reservation)
+
+    return {
+        "status": "success",
+        "message": "Paiement effectué avec succès",
+        "reservation_id": reservation.id,
+        "amount": calculate_price(reservation.offre, reservation.quantity),
+        "payment_date": reservation.payment_date
+    }
+
+# ✅ QR code pour l'utilisateur
 @router.get("/{reservation_id}/qrcode", response_model=dict)
 def get_reservation_qrcode(
     reservation_id: int,
