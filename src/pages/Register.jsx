@@ -18,7 +18,6 @@ const Register = () => {
   const { register } = useAuth();
   const navigate = useNavigate();
 
-  // Validation des champs en temps réel
   const validateField = (name, value) => {
     const errors = { ...fieldErrors };
 
@@ -46,7 +45,6 @@ const Register = () => {
         } else {
           delete errors.password;
         }
-        // Vérifier la correspondance si le champ de confirmation existe
         if (
           formData.password_confirmation &&
           value !== formData.password_confirmation
@@ -78,7 +76,6 @@ const Register = () => {
     validateField(name, value);
   };
 
-  // Calculer la force du mot de passe
   const getPasswordStrength = (password) => {
     if (password.length === 0) return { score: 0, label: '' };
     if (password.length < 6) return { score: 1, label: 'Faible' };
@@ -100,14 +97,12 @@ const Register = () => {
     setLoading(true);
     setError('');
 
-    // Validation finale avant soumission
     if (formData.password !== formData.password_confirmation) {
       setError('Les mots de passe ne correspondent pas');
       setLoading(false);
       return;
     }
 
-    // Vérifier s'il y a des erreurs de champ
     if (Object.keys(fieldErrors).length > 0) {
       setError('Veuillez corriger les erreurs dans le formulaire');
       setLoading(false);

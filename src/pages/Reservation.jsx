@@ -65,8 +65,7 @@ const Reservation = () => {
       await response.json();
       alert('Réservation créée avec succès 🎉');
       navigate('/mes-reservations');
-    } catch (err) {
-      console.error('Erreur réseau:', err);
+    } catch {
       alert('Erreur réseau');
     }
   };

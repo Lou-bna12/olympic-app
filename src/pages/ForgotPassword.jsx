@@ -8,11 +8,8 @@ const ForgotPassword = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Simulation d'un lien de réinitialisation envoyé
     setMessage('Un lien de réinitialisation a été envoyé à votre email.');
-
-    // Simuler la redirection après 3 secondes
-    setTimeout(() => navigate('/login'), 3000); // Rediriger vers la page login
+    setTimeout(() => navigate('/login'), 3000);
   };
 
   return (

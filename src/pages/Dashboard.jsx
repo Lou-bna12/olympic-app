@@ -53,7 +53,7 @@ const Dashboard = () => {
           });
           if (res.ok) additional = await res.json();
         } catch (e) {
-          console.error('Erreur stats supplémentaires:', e);
+          // Nettoyé: suppression du console.error
         }
 
         setStats({
@@ -64,7 +64,7 @@ const Dashboard = () => {
           ...additional,
         });
       } catch (error) {
-        console.error('Erreur chargement stats:', error);
+        // Nettoyé: suppression du console.error
       } finally {
         setLoading(false);
       }

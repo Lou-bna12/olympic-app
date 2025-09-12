@@ -1,4 +1,3 @@
-// src/pages/Confirmation.jsx
 import React, { useMemo } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 
@@ -10,24 +9,18 @@ const OFFERS = {
 
 export default function Confirmation() {
   const location = useLocation();
-
-  // 1) depuis la navigation (state)
   let reservation = location.state?.reservation || null;
 
-  // 2) fallback : dernier élément en localStorage
   if (!reservation) {
     try {
       const raw = localStorage.getItem('my_reservations') || '[]';
       const list = JSON.parse(raw);
       reservation = list?.[0] || null;
-    } catch {
-      /* ignore */
-    }
+    } catch {}
   }
 
   const details = useMemo(() => {
     if (!reservation) return null;
-
     const offerKey = reservation.offer || 'solo';
     const offer = OFFERS[offerKey] || OFFERS.solo;
 

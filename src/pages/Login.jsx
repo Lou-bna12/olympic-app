@@ -18,7 +18,6 @@ const Login = () => {
   const location = useLocation();
   const { login, authError, clearError } = useAuth();
 
-  // Message de bienvenue après inscription
   const successMessage = location.state?.message;
 
   const handleChange = (e) => {
@@ -28,11 +27,9 @@ const Login = () => {
       [name]: type === 'checkbox' ? checked : value,
     });
 
-    // Effacer les erreurs lors de la modification
     if (error) setError('');
     if (authError) clearError();
 
-    // Validation en temps réel
     if (name === 'email') {
       validateEmail(value);
     }
@@ -57,7 +54,6 @@ const Login = () => {
     setError('');
     clearError();
 
-    // Validation finale
     if (Object.keys(fieldErrors).length > 0) {
       setLoading(false);
       return;
@@ -66,23 +62,18 @@ const Login = () => {
     try {
       const result = await login(form.email, form.password);
 
-      // Vérification robuste du résultat
       if (!result) {
         setError('Erreur inattendue lors de la connexion');
         return;
       }
 
       if (result.success) {
-        console.log('Connexion réussie via AuthContext');
-
-        // Redirection vers la page demandée ou dashboard par défaut
         const from = location.state?.from?.pathname || '/dashboard';
         navigate(from, { replace: true });
       } else {
         setError(result.error || 'Email ou mot de passe incorrect');
       }
-    } catch (error) {
-      console.error('Erreur serveur:', error);
+    } catch {
       setError('Erreur de connexion au serveur');
     } finally {
       setLoading(false);

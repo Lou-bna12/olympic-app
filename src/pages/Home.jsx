@@ -1,4 +1,3 @@
-// Home.jsx
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -9,7 +8,6 @@ const Home = () => {
   const token = localStorage.getItem('token');
 
   const handleOfferRedirect = (offerType) => {
-    // Convertir en format avec première lettre en majuscule
     const formattedOffer =
       offerType.charAt(0).toUpperCase() + offerType.slice(1);
 
@@ -22,11 +20,10 @@ const Home = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Hero section */}
       <section
         className="relative bg-cover bg-center overflow-hidden"
         style={{
-          backgroundImage: "url('/images/jo_accueil.jpg')", // Chemin relatif vers l'image locale
+          backgroundImage: "url('/images/jo_accueil.jpg')",
         }}
       >
         <div className="absolute inset-0 bg-black/60" />
@@ -45,19 +42,15 @@ const Home = () => {
             Vivez l'expérience unique des Jeux Olympiques 2024 à Paris. Réservez
             vos places, découvrez les événements et soyez au cœur de l'action !
           </p>
-
-          {/* SUPPRESSION: Bouton "Acheter mes billets" */}
         </motion.div>
       </section>
 
-      {/* Offres améliorées */}
       <section className="max-w-7xl mx-auto px-4 py-12 md:py-16">
         <h2 className="text-2xl md:text-3xl font-semibold text-center text-gray-800 mb-8">
           Nos Formules Exclusives
         </h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-          {/* Offre Solo */}
           <motion.div
             initial={{ opacity: 0, x: 40 }}
             animate={{ opacity: 1, x: 0 }}
@@ -88,7 +81,6 @@ const Home = () => {
             </div>
           </motion.div>
 
-          {/* Offre Duo */}
           <motion.div
             initial={{ opacity: 0, x: -40 }}
             animate={{ opacity: 1, x: 0 }}
@@ -119,7 +111,6 @@ const Home = () => {
             </div>
           </motion.div>
 
-          {/* Offre Familiale */}
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}

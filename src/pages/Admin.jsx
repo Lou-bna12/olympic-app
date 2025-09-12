@@ -22,13 +22,11 @@ const Admin = () => {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  // Utilisation de useCallback pour mémoriser la fonction
   const calculatePrice = useCallback((offre, quantity) => {
     const pricesMap = { Solo: 25, Duo: 50, Familiale: 150 };
     return (pricesMap[offre] ?? 70) * (quantity ?? 1);
-  }, []); // Aucune dépendance car la fonction est statique
+  }, []);
 
-  //Fallback local si l'API /admin/stats ne renvoie rien
   const computed = useMemo(() => {
     if (!Array.isArray(reservations)) {
       return {
@@ -43,7 +41,6 @@ const Admin = () => {
       (r) => (r.status || 'pending_payment') === 'pending_payment'
     ).length;
 
-    // on calcule un totalUsers minimal à partir des emails (ou usernames)
     const uniqueEmails = new Set(
       reservations.map((r) => r.email).filter(Boolean)
     );
@@ -52,7 +49,6 @@ const Admin = () => {
     );
     const totalUsers = Math.max(uniqueEmails.size, uniqueUsernames.size);
 
-    // on additionne le CA uniquement sur confirmed/approved
     const revenue = reservations.reduce((sum, r) => {
       const st = r.status || 'pending_payment';
       return ['approved', 'confirmed'].includes(st)
@@ -70,7 +66,7 @@ const Admin = () => {
         setError('');
 
         const [statsData, reservationsData] = await Promise.allSettled([
-          getAdminStats(), // peut échouer → on utilisera computed
+          getAdminStats(),
           getAllReservations(),
         ]);
 
@@ -83,13 +79,10 @@ const Admin = () => {
         if (statsData.status === 'fulfilled') {
           setStats(statsData.value || null);
         } else {
-          setStats(null); // forcera l'usage du fallback
+          setStats(null);
         }
-      } catch (e) {
-        console.error('Erreur:', e);
+      } catch {
         setError('Erreur lors du chargement des données administrateur');
-        // si 401/403, on peut rediriger :
-        // window.location.href = '/login?error=admin_required';
       } finally {
         setLoading((p) => ({ ...p, reservations: false, stats: false }));
       }
@@ -106,8 +99,7 @@ const Admin = () => {
       await apiApproveReservation(reservationId);
       setSuccessMessage('Réservation approuvée avec succès!');
       await refreshData();
-    } catch (e) {
-      console.error('Erreur:', e);
+    } catch {
       setError("Erreur lors de l'approbation de la réservation");
     } finally {
       setLoading((p) => ({ ...p, approval: false }));
@@ -122,8 +114,7 @@ const Admin = () => {
       await apiRejectReservation(reservationId);
       setSuccessMessage('Réservation rejetée avec succès!');
       await refreshData();
-    } catch (e) {
-      console.error('Erreur:', e);
+    } catch {
       setError('Erreur lors du rejet de la réservation');
     } finally {
       setLoading((p) => ({ ...p, approval: false }));
@@ -142,8 +133,7 @@ const Admin = () => {
       await apiDeleteReservation(reservationId);
       setSuccessMessage('Réservation supprimée avec succès!');
       await refreshData();
-    } catch (e) {
-      console.error('Erreur:', e);
+    } catch {
       setError('Erreur lors de la suppression de la réservation');
     } finally {
       setLoading((p) => ({ ...p, delete: false }));
@@ -159,8 +149,7 @@ const Admin = () => {
       setSuccessMessage('Réservation modifiée avec succès!');
       setEditingReservation(null);
       await refreshData();
-    } catch (e) {
-      console.error('Erreur:', e);
+    } catch {
       setError('Erreur lors de la modification de la réservation');
     } finally {
       setLoading((p) => ({ ...p, update: false }));
@@ -182,8 +171,7 @@ const Admin = () => {
       } else {
         setStats(null);
       }
-    } catch (e) {
-      console.error('Erreur:', e);
+    } catch {
       setError('Erreur lors du rafraîchissement des données');
     } finally {
       setLoading((p) => ({ ...p, reservations: false, stats: false }));
@@ -360,7 +348,6 @@ const Admin = () => {
     );
   }
 
-  //  Choix de la source d'affichage (API si dispo, sinon fallback local)
   const totalReservations =
     stats?.total_reservations ?? computed.totalReservations;
   const pendingReservations =

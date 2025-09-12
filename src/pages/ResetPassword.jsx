@@ -1,4 +1,3 @@
-// src/pages/ResetPassword.jsx
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -21,7 +20,6 @@ export default function ResetPassword() {
       return;
     }
 
-    // Démo front-only : on “réussit” localement
     setDone(true);
   };
 
