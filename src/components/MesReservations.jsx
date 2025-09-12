@@ -28,17 +28,26 @@ const MesReservations = () => {
 
   const navigate = useNavigate();
   const API = 'http://127.0.0.1:8000';
-  const getOfferName = (obj) => obj?.offer ?? obj?.offre ?? '';
-
-  // Map "nom d'offre" -> id d'offre (adapte si besoin)
-  const offerIdFromName = (name) => {
-    const map = { Solo: 1, Duo: 2, Familiale: 3 };
-    return map[name] ?? null;
-  };
 
   const calculatePrice = (offre, quantity) => {
-    const prices = { Solo: 25, Duo: 50, Familiale: 150 };
-    return (prices[offre] || 0) * (quantity || 0);
+    // Si l'offre est undefined, utiliser une valeur par défaut
+    const offerName = offre || 'Solo';
+    const normalizedOffre = offerName.toLowerCase().trim();
+
+    const prices = {
+      solo: 25,
+      duo: 50,
+      familiale: 150,
+      // Ajout de variations possibles
+      'offre solo': 25,
+      'offre duo': 50,
+      'offre familiale': 150,
+      'solo offer': 25,
+      'duo offer': 50,
+      'family offer': 150,
+    };
+
+    return (prices[normalizedOffre] || 25) * (quantity || 1); // 25€ par défaut
   };
 
   useEffect(() => {
@@ -57,7 +66,7 @@ const MesReservations = () => {
           (r) => r.status === 'pending_payment'
         ).length,
         total_amount: reservations.reduce(
-          (total, r) => total + calculatePrice(getOfferName(r), r.quantity),
+          (total, r) => total + calculatePrice(r.offre, r.quantity),
           0
         ),
       });
@@ -79,9 +88,18 @@ const MesReservations = () => {
       const res = await fetch(`${API}/reservations`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
       if (res.ok) {
         const data = await res.json();
-        setReservations(data);
+        console.log('Réservations récupérées:', data);
+
+        // Corriger les réservations avec offre undefined
+        const correctedReservations = data.map((reservation) => ({
+          ...reservation,
+          offre: reservation.offre || 'Solo', // Valeur par défaut
+        }));
+
+        setReservations(correctedReservations);
       } else {
         console.error('Erreur chargement réservations:', await res.text());
       }
@@ -92,7 +110,6 @@ const MesReservations = () => {
     }
   };
 
-  // --- FIX: lire le PNG en blob (pas en json) et l'ouvrir proprement
   const generateQRCode = async (reservationId) => {
     try {
       const token = localStorage.getItem('token');
@@ -103,7 +120,7 @@ const MesReservations = () => {
         console.error('Erreur QR:', await res.text());
         return;
       }
-      const blob = await res.blob(); // <--- clé
+      const blob = await res.blob();
       const url = URL.createObjectURL(blob);
 
       const w = window.open('', '_blank');
@@ -124,10 +141,8 @@ const MesReservations = () => {
       `);
       w.document.close();
 
-      // On libère l'URL quand l'onglet se ferme
       const revoke = () => URL.revokeObjectURL(url);
       w.addEventListener('beforeunload', revoke);
-      // Sécurité : au cas où
       setTimeout(revoke, 60_000);
     } catch (e) {
       console.error('Erreur QR code:', e);
@@ -159,8 +174,8 @@ const MesReservations = () => {
     setEditingId(reservation.id);
     setEditForm({
       date: reservation.date ? reservation.date.slice(0, 10) : '',
-      offre: reservation.offre,
-      quantity: reservation.quantity,
+      offre: reservation.offre || 'Solo',
+      quantity: reservation.quantity || 1,
     });
   };
 
@@ -192,85 +207,58 @@ const MesReservations = () => {
   };
 
   const openPaymentModal = (reservation) => {
+    console.log('Réservation sélectionnée pour paiement:', reservation);
     setSelectedReservation(reservation);
     setShowPaymentModal(true);
   };
 
-  // ========= Paiement =========
   const processPayment = async () => {
     if (!selectedReservation) return;
 
     const token = localStorage.getItem('token');
+    const amount = calculatePrice(
+      selectedReservation.offre,
+      selectedReservation.quantity
+    );
 
-    const payWithReservationId = async () => {
-      const pRes = await fetch(`${API}/payment/simulate`, {
+    console.log('Tentative de paiement:', {
+      reservationId: selectedReservation.id,
+      amount: amount,
+      offre: selectedReservation.offre,
+      quantity: selectedReservation.quantity,
+    });
+
+    try {
+      const res = await fetch(`${API}/payment/simulate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ reservation_id: selectedReservation.id }),
+        body: JSON.stringify({
+          reservation_id: selectedReservation.id,
+          amount: amount,
+        }),
       });
-      return pRes;
-    };
 
-    try {
-      const offerId = offerIdFromName(selectedReservation.offre);
-      let ticketId = null;
-
-      if (offerId) {
-        const tRes = await fetch(`${API}/tickets/?offer_id=${offerId}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({}),
+      if (res.ok) {
+        alert('Paiement effectué avec succès !');
+        setShowPaymentModal(false);
+        setSelectedReservation(null);
+        setPaymentForm({
+          cardNumber: '',
+          expiryDate: '',
+          cvv: '',
+          cardholderName: '',
         });
-
-        if (tRes.ok) {
-          const tData = await tRes.json();
-          ticketId = tData?.id ?? tData?.ticket_id ?? tData?.ticket?.id ?? null;
-        } else if (tRes.status !== 404) {
-          const txt = await tRes.text();
-          console.error('Erreur création ticket:', txt);
-          alert('Impossible de créer le ticket (vérifie l’offre / session).');
-          return;
-        }
-      }
-
-      let pRes;
-      if (ticketId) {
-        pRes = await fetch(`${API}/payment/simulate`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ ticket_id: ticketId }),
-        });
+        await fetchReservations();
       } else {
-        pRes = await payWithReservationId();
+        const errorText = await res.text();
+        console.error('Erreur paiement:', errorText);
+        alert('Erreur lors du paiement: ' + errorText);
       }
-
-      if (!pRes.ok) {
-        const txt = await pRes.text();
-        console.error('Erreur paiement:', txt);
-        alert('Paiement refusé / impossible.');
-        return;
-      }
-
-      setShowPaymentModal(false);
-      setSelectedReservation(null);
-      setPaymentForm({
-        cardNumber: '',
-        expiryDate: '',
-        cvv: '',
-        cardholderName: '',
-      });
-      await fetchReservations();
     } catch (e) {
-      console.error('Erreur paiement:', e);
+      console.error('Erreur réseau:', e);
       alert('Erreur réseau pendant le paiement.');
     }
   };
@@ -348,6 +336,11 @@ const MesReservations = () => {
               const isPaid = ['approved', 'confirmed', 'paid'].includes(
                 reservation.status
               );
+              const price = calculatePrice(
+                reservation.offre,
+                reservation.quantity
+              );
+
               return (
                 <div
                   key={reservation.id}
@@ -384,9 +377,9 @@ const MesReservations = () => {
                             }
                             className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           >
-                            <option value="Solo">Solo</option>
-                            <option value="Duo">Duo</option>
-                            <option value="Familiale">Familiale</option>
+                            <option value="Solo">Solo (25€)</option>
+                            <option value="Duo">Duo (50€)</option>
+                            <option value="Familiale">Familiale (150€)</option>
                           </select>
                         </div>
                         <div>
@@ -449,23 +442,31 @@ const MesReservations = () => {
                           <div>
                             <span className="text-gray-600">Quantité:</span>
                             <p className="text-gray-900 font-medium">
-                              {reservation.quantity}
+                              {reservation.quantity || 1}
                             </p>
                           </div>
                           <div>
                             <span className="text-gray-600">Prix:</span>
                             <p className="text-gray-900 font-medium">
-                              {calculatePrice(
-                                reservation.offre,
-                                reservation.quantity
-                              )}{' '}
-                              €
+                              {price} €
                             </p>
                           </div>
                           <div>
                             <span className="text-gray-600">Statut:</span>
-                            <p className="text-gray-900 font-medium">
-                              {reservation.status}
+                            <p
+                              className={`text-gray-900 font-medium ${
+                                reservation.status === 'pending_payment'
+                                  ? 'text-amber-600'
+                                  : reservation.status === 'confirmed'
+                                  ? 'text-green-600'
+                                  : ''
+                              }`}
+                            >
+                              {reservation.status === 'pending_payment'
+                                ? 'En attente de paiement'
+                                : reservation.status === 'confirmed'
+                                ? 'Confirmée'
+                                : reservation.status}
                             </p>
                           </div>
                         </div>
@@ -476,22 +477,31 @@ const MesReservations = () => {
                         {isPaid && (
                           <button
                             onClick={() => generateQRCode(reservation.id)}
-                            className="p-3 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
-                            title="Afficher le QR Code"
+                            className="p-3 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors duration-200"
+                            title="Télécharger le QR Code"
                           >
                             <FiDownload className="w-5 h-5" />
                           </button>
                         )}
 
+                        {/* Paiement si en attente */}
                         {reservation.status === 'pending_payment' && (
                           <button
                             onClick={() => openPaymentModal(reservation)}
-                            className="p-3 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors duration-200"
-                            title="Payer"
+                            className="p-3 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors duration-200"
+                            title="Payer la réservation"
                           >
                             <FiDollarSign className="w-5 h-5" />
                           </button>
                         )}
+
+                        <button
+                          onClick={() => startEditing(reservation)}
+                          className="p-3 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
+                          title="Modifier"
+                        >
+                          <FiEdit className="w-5 h-5" />
+                        </button>
 
                         <button
                           onClick={() => deleteReservation(reservation.id)}
@@ -499,13 +509,6 @@ const MesReservations = () => {
                           title="Supprimer"
                         >
                           <FiTrash2 className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => startEditing(reservation)}
-                          className="p-3 text-gray-600 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors duration-200"
-                          title="Modifier"
-                        >
-                          <FiEdit className="w-5 h-5" />
                         </button>
                       </div>
                     </div>
@@ -517,20 +520,36 @@ const MesReservations = () => {
         )}
 
         {/* Modal de paiement */}
-        {showPaymentModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4 border border-gray-200 relative">
-              <button
-                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
-                onClick={() => setShowPaymentModal(false)}
-                aria-label="Fermer"
-              >
-                <FiX className="w-5 h-5" />
-              </button>
+        {showPaymentModal && selectedReservation && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl p-6 w-full max-w-md">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-semibold text-gray-900">
+                  Paiement de la réservation #{selectedReservation.id}
+                </h3>
+                <button
+                  onClick={() => setShowPaymentModal(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <FiX className="w-5 h-5" />
+                </button>
+              </div>
 
-              <h2 className="text-xl font-semibold text-gray-800 mb-6">
-                Paiement
-              </h2>
+              <div className="bg-blue-50 p-4 rounded-lg mb-4">
+                <p className="text-blue-800 font-semibold text-lg">
+                  Montant à payer:{' '}
+                  {calculatePrice(
+                    selectedReservation.offre,
+                    selectedReservation.quantity
+                  )}{' '}
+                  €
+                </p>
+                <p className="text-blue-600 text-sm">
+                  Offre: {selectedReservation.offre} ×{' '}
+                  {selectedReservation.quantity || 1}
+                </p>
+              </div>
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -538,6 +557,7 @@ const MesReservations = () => {
                   </label>
                   <input
                     type="text"
+                    placeholder="1234 5678 9012 3456"
                     value={paymentForm.cardNumber}
                     onChange={(e) =>
                       setPaymentForm({
@@ -546,10 +566,8 @@ const MesReservations = () => {
                       })
                     }
                     className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="1234 5678 9012 3456"
                   />
                 </div>
-
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -557,6 +575,7 @@ const MesReservations = () => {
                     </label>
                     <input
                       type="text"
+                      placeholder="MM/AA"
                       value={paymentForm.expiryDate}
                       onChange={(e) =>
                         setPaymentForm({
@@ -565,7 +584,6 @@ const MesReservations = () => {
                         })
                       }
                       className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="MM/AA"
                     />
                   </div>
                   <div>
@@ -574,22 +592,22 @@ const MesReservations = () => {
                     </label>
                     <input
                       type="text"
+                      placeholder="123"
                       value={paymentForm.cvv}
                       onChange={(e) =>
                         setPaymentForm({ ...paymentForm, cvv: e.target.value })
                       }
                       className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="123"
                     />
                   </div>
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Titulaire de la carte
                   </label>
                   <input
                     type="text"
+                    placeholder="Nom Prénom"
                     value={paymentForm.cardholderName}
                     onChange={(e) =>
                       setPaymentForm({
@@ -598,24 +616,26 @@ const MesReservations = () => {
                       })
                     }
                     className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Nom et prénom"
                   />
                 </div>
               </div>
-
-              <div className="mt-6 flex justify-end gap-3">
-                <button
-                  onClick={() => setShowPaymentModal(false)}
-                  className="px-5 py-2 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300 transition-colors duration-200"
-                >
-                  Annuler
-                </button>
+              <div className="flex gap-3 mt-6">
                 <button
                   onClick={processPayment}
-                  className="px-5 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors duration-200 flex items-center gap-2"
+                  className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors duration-200 font-semibold"
                 >
-                  <FiDollarSign className="w-4 h-4" />
-                  Payer maintenant
+                  Payer{' '}
+                  {calculatePrice(
+                    selectedReservation.offre,
+                    selectedReservation.quantity
+                  )}{' '}
+                  €
+                </button>
+                <button
+                  onClick={() => setShowPaymentModal(false)}
+                  className="flex-1 bg-gray-500 text-white py-3 rounded-lg hover:bg-gray-600 transition-colors duration-200"
+                >
+                  Annuler
                 </button>
               </div>
             </div>

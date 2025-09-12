@@ -1,79 +1,132 @@
-import React, { useState, useEffect } from 'react';
-import Payment from './Payment';
+import React, { useEffect, useState } from 'react';
+import { FiTrash2 } from 'react-icons/fi';
 
-const TicketCard = ({ ticket, onUpdate }) => {
-  const [showPayment, setShowPayment] = useState(false);
+const API = 'http://127.0.0.1:8000';
 
+export default function TicketCard({ ticket, onUpdate }) {
+  const [qrSrc, setQrSrc] = useState('');
+
+  // Charge le QR (si ticket payé)
   useEffect(() => {
-    console.log(`Ticket ${ticket.id} - showPayment:`, showPayment);
-  }, [showPayment, ticket.id]);
+    let revokeUrl = null;
 
-  const handlePaymentSuccess = () => {
-    setShowPayment(false);
-    onUpdate();
+    async function loadQr() {
+      try {
+        if (ticket?.is_paid && ticket?.reservation_id) {
+          const token = localStorage.getItem('token');
+          const res = await fetch(
+            `${API}/reservations/${ticket.reservation_id}/qrcode`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          if (!res.ok) {
+            setQrSrc('');
+            return;
+          }
+          const url = URL.createObjectURL(await res.blob());
+          setQrSrc(url);
+          revokeUrl = url;
+        } else {
+          setQrSrc('');
+        }
+      } catch (e) {
+        console.error('Erreur QR code:', e);
+        setQrSrc('');
+      }
+    }
+
+    loadQr();
+    return () => revokeUrl && URL.revokeObjectURL(revokeUrl);
+  }, [ticket?.id, ticket?.is_paid, ticket?.reservation_id]);
+
+  const handleDelete = async () => {
+    if (ticket.is_paid) {
+      alert('Ce ticket a déjà été payé : suppression désactivée.');
+      return;
+    }
+    if (!window.confirm(`Supprimer le ticket #${ticket.id} ?`)) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API}/tickets/${ticket.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        alert(txt || 'Suppression impossible.');
+        return;
+      }
+      // Rafraîchir la liste
+      onUpdate && onUpdate();
+    } catch (e) {
+      console.error('Erreur suppression ticket:', e);
+      alert('Erreur réseau pendant la suppression.');
+    }
   };
 
   return (
-    <>
-      <div className="bg-white rounded-lg shadow p-6 mb-4">
-        <h3 className="text-lg font-semibold mb-2">Ticket #{ticket.id}</h3>
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div>
-            <p className="text-sm text-gray-600">Prix</p>
-            <p className="font-medium">{ticket.amount} €</p>
+    <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Ticket #{ticket.id}
+            </h3>
+            <button
+              onClick={handleDelete}
+              className={`p-2 rounded-lg border transition ${
+                ticket.is_paid
+                  ? 'border-gray-200 text-gray-300 cursor-not-allowed'
+                  : 'border-red-200 text-red-600 hover:bg-red-50'
+              }`}
+              title={
+                ticket.is_paid
+                  ? 'Ticket payé (suppression impossible)'
+                  : 'Supprimer le ticket'
+              }
+              disabled={ticket.is_paid}
+            >
+              <FiTrash2 className="w-4 h-4" />
+            </button>
           </div>
-          <div>
-            <p className="text-sm text-gray-600">Statut</p>
+
+          <div className="text-sm text-gray-600">
+            Offre: <span className="font-medium">{ticket.offer_id}</span>
+          </div>
+          <div className="text-sm text-gray-600">
+            Réservation:{' '}
+            <span className="font-medium">{ticket.reservation_id ?? '—'}</span>
+          </div>
+          <div className="text-sm text-gray-600">
+            Statut:{' '}
             <span
-              className={`px-2 py-1 text-xs rounded-full ${
+              className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                 ticket.is_paid
                   ? 'bg-green-100 text-green-800'
-                  : 'bg-yellow-100 text-yellow-800'
+                  : 'bg-amber-100 text-amber-800'
               }`}
             >
-              {ticket.is_paid ? 'Payé' : 'En attente'}
+              {ticket.is_paid ? 'Payé' : ticket.payment_status}
             </span>
           </div>
         </div>
 
-        {ticket.is_paid && ticket.qr_code && (
-          <div className="mb-4 text-center">
+        {ticket.is_paid ? (
+          <div className="text-center">
+            <div className="text-sm font-medium text-gray-700 mb-2">
+              QR Code
+            </div>
             <img
-              src={ticket.qr_code}
-              alt="QR Code"
-              className="w-32 h-32 mx-auto border rounded"
+              src={qrSrc}
+              alt={`QR du ticket #${ticket.id}`}
+              style={{ width: 160, height: 160, objectFit: 'contain' }}
             />
-            <p className="text-xs text-gray-500 mt-2">
-              Scannez ce QR code à l'entrée
+            <p className="mt-2 text-xs text-gray-500">
+              Scannez ce QR code à l’entrée
             </p>
           </div>
-        )}
-
-        {!ticket.is_paid && (
-          <button
-            onClick={() => setShowPayment(true)}
-            className="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"
-          >
-            Payer maintenant
-          </button>
-        )}
-
-        {ticket.is_paid && ticket.payment_date && (
-          <p className="text-sm text-gray-600 mt-2 text-center">
-            Payé le {new Date(ticket.payment_date).toLocaleDateString('fr-FR')}
-          </p>
-        )}
+        ) : null}
       </div>
-
-      {showPayment && (
-        <Payment
-          ticket={ticket}
-          onPaymentSuccess={handlePaymentSuccess}
-          onCancel={() => setShowPayment(false)}
-        />
-      )}
-    </>
+    </div>
   );
-};
-
-export default TicketCard;
+}

@@ -73,18 +73,21 @@ def get_my_tickets(db: Session = Depends(get_db), user: User = Depends(get_curre
     ]
 
 
-@router.get("/{ticket_id}", name="get_ticket")
-def get_ticket(ticket_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    ticket = db.query(models.Ticket).filter(models.Ticket.id == ticket_id, models.Ticket.user_id == user.id).first()
+@router.delete("/{ticket_id}", name="delete_ticket")
+def delete_ticket(
+    ticket_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    ticket = (
+        db.query(models.Ticket)
+        .filter(models.Ticket.id == ticket_id, models.Ticket.user_id == user.id)
+        .first()
+    )
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
-    return {
-        "id": ticket.id,
-        "offer_id": ticket.offer_id,
-        "reservation_id": ticket.reservation_id,
-        "is_paid": ticket.is_paid,
-        "payment_status": ticket.payment_status,
-        "qr_code": ticket.qr_code if ticket.is_paid else None,
-        "final_key": ticket.final_key if ticket.is_paid else None,
-    }
+    db.delete(ticket)
+    db.commit()
+    return {"message": "Ticket deleted"}
+
