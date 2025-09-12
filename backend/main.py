@@ -31,9 +31,10 @@ app.include_router(payment_router)
 app.include_router(tickets_router)
 
 # Routes
-#@app.get("/ping", tags=["health"])
-#def ping():
-# return {"message": "PARFAIT 👌"}
+@app.get("/ping", tags=["health"])
+
+def ping():
+    return {"message": "PARFAIT 👌"}
 
 @app.get("/healthz", tags=["health"])
 def healthz():

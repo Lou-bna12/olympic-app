@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Routes, Route, useLocation, Navigate, Link } from 'react-router-dom';
 import MesReservations from './components/MesReservations';
 import AdminRoute from './components/AdminRoute';
@@ -61,35 +61,6 @@ function PageNotFound() {
 
 const App = () => {
   const location = useLocation();
-  const [backendStatus, setBackendStatus] = useState('Vérification...');
-
-  // Test API backend avec gestion d'erreurs améliorée
-  useEffect(() => {
-    const verifierBackend = async () => {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-        const response = await fetch('http://127.0.0.1:8000/ping', {
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          throw new Error(`Erreur HTTP: ${response.status}`);
-        }
-
-        const data = await response.json();
-        setBackendStatus(data.message);
-      } catch (error) {
-        setBackendStatus('Erreur de connexion API');
-        console.error('Erreur backend:', error);
-      }
-    };
-
-    verifierBackend();
-  }, []);
 
   // Les pages où on cache le footer
   const routesSansFooter = [
@@ -105,19 +76,6 @@ const App = () => {
   return (
     <>
       <Header />
-
-      {/* Status backend - visible seulement en développement */}
-      {process.env.NODE_ENV === 'development' && (
-        <div
-          style={{
-            textAlign: 'center',
-            padding: '10px',
-            background: '#f1f1f1',
-          }}
-        >
-          <strong>Backend :</strong> {backendStatus}
-        </div>
-      )}
 
       <Routes>
         {/* Routes publiques */}
@@ -145,7 +103,6 @@ const App = () => {
             </RequireAuth>
           }
         />
-
         <Route
           path="/mes-tickets"
           element={
@@ -162,7 +119,6 @@ const App = () => {
             </RequireAuth>
           }
         />
-
         <Route
           path="/admin/*"
           element={
@@ -171,7 +127,6 @@ const App = () => {
             </AdminRoute>
           }
         />
-
         <Route path="*" element={<PageNotFound />} />
       </Routes>
 
