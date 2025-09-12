@@ -33,7 +33,24 @@ class ReservationBase(BaseModel):
 class ReservationCreate(ReservationBase):
     email: str
 
+class ReservationUpdate(BaseModel):
+    username: Optional[str] = None
+    email: Optional[str] = None
+    date: Optional[date] = None
+    offre: Optional[str] = None
+    quantity: Optional[int] = None
+
 class ReservationOut(ReservationBase):
+    id: int
+    email: str
+    status: str
+    user_id: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+# AJOUTEZ CE SCHÉMA MANQUANT
+class ReservationResponse(ReservationBase):
     id: int
     email: str
     status: str

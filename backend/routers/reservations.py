@@ -1,253 +1,181 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from database import get_db, SECRET_KEY, ALGORITHM
-from pydantic import BaseModel
+from sqlalchemy import func
 from typing import List, Optional
-import models
-from jose import JWTError, jwt
-from fastapi.security import OAuth2PasswordBearer
-from datetime import datetime
 from datetime import date as date_type
-import qrcode
+from pydantic import BaseModel
 from io import BytesIO
-import base64
+import qrcode
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
-router = APIRouter(tags=["reservations"])
+from database import get_db
+from models import Reservation, User, Ticket
+from routers.auth import get_current_user
 
-class ReservationRequest(BaseModel):
-    username: str
-    email: str
+router = APIRouter(prefix="/reservations", tags=["reservations"])
+
+# -------- Schemas --------
+class ReservationCreate(BaseModel):
     date: date_type
-    offre: str
-    quantity: int
+    offer: Optional[str] = None
+    offre: Optional[str] = None
+    quantity: int = 1
+    model_config = {"extra": "ignore"}
 
 class ReservationUpdate(BaseModel):
-    username: Optional[str] = None
-    email: Optional[str] = None
     date: Optional[date_type] = None
+    offer: Optional[str] = None
     offre: Optional[str] = None
     quantity: Optional[int] = None
+    status: Optional[str] = None
+    model_config = {"extra": "ignore"}
 
-class PaymentSimulation(BaseModel):
-    reservation_id: int
+class ReservationOut(BaseModel):
+    id: int
+    user_id: int
+    date: date_type
+    offer: str
+    quantity: int
+    status: Optional[str] = None
+    class Config:
+        from_attributes = True  # Pydantic v2
 
-class PaymentResponse(BaseModel):
-    status: str
-    message: str
-    reservation_id: int
-    amount: float
-    payment_date: datetime
-
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
-            raise HTTPException(status_code=401, detail="Token invalide")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Token invalide")
-
-    user = db.query(models.User).filter(models.User.email == email).first()
-    if user is None:
-        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
-    return user
-
-def calculate_price(offre, quantity):
-    prices = {
-        "Solo": 25,
-        "Duo": 50,
-        "Familiale": 150,
-    }
-    return prices.get(offre, 0) * quantity
-
-@router.post("/", response_model=dict)
-def create_reservation(
-    request: ReservationRequest,
+# -------- STATS (mettre AVANT la route dynamique) --------
+@router.get("/stats", name="reservations_stats")
+def reservations_stats(
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
 ):
-    reservation = models.Reservation(
-        username=request.username,
-        email=request.email,
-        date=request.date,
-        offre=request.offre,
-        quantity=request.quantity,
-        user_id=current_user.id,
-        status="pending_payment"  # Ajout du statut initial
+    total = db.query(func.count(Reservation.id))\
+              .filter(Reservation.user_id == user.id).scalar() or 0
+    pending = db.query(func.count(Reservation.id))\
+               .filter(Reservation.user_id == user.id, Reservation.status == "pending_payment").scalar() or 0
+    confirmed = db.query(func.count(Reservation.id))\
+                 .filter(Reservation.user_id == user.id, Reservation.status == "confirmed").scalar() or 0
+    return {"total": total, "pending": pending, "confirmed": confirmed}
+
+# -------- LIST --------
+@router.get("", response_model=List[ReservationOut], name="list_reservations")
+def list_reservations(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return (
+        db.query(Reservation)
+        .filter(Reservation.user_id == user.id)
+        .order_by(Reservation.id.desc())
+        .all()
     )
-    db.add(reservation)
-    db.commit()
-    db.refresh(reservation)
-    return {"message": "Réservation créée avec succès 🎉", "id": reservation.id}
 
-@router.get("/me", response_model=List[dict])
-def get_my_reservations(
+# -------- CREATE --------
+@router.post("", response_model=ReservationOut, name="create_reservation")
+def create_reservation(
+    payload: ReservationCreate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
 ):
-    reservations = db.query(models.Reservation).filter(
-        models.Reservation.user_id == current_user.id
-    ).all()
-    return [
-        {
-            "id": r.id,
-            "username": r.username,
-            "email": r.email,
-            "date": r.date.isoformat() if r.date else None,
-            "offre": r.offre,
-            "quantity": r.quantity,
-            "status": r.status,
-        }
-        for r in reservations
-    ]
+    offer_value = payload.offer or payload.offre
+    if not offer_value:
+        raise HTTPException(status_code=422, detail="Champ 'offer' (ou 'offre') manquant")
 
-@router.put("/{reservation_id}", response_model=dict)
+    new_res = Reservation(
+        user_id=user.id,
+        date=payload.date,
+        offer=offer_value,   # map vers colonne 'offre'
+        quantity=payload.quantity,
+        status="pending_payment",
+    )
+    db.add(new_res)
+    db.commit()
+    db.refresh(new_res)
+    return new_res
+
+# -------- DETAIL --------
+@router.get("/{reservation_id:int}", response_model=ReservationOut, name="get_reservation_detail")
+def get_reservation_detail(
+    reservation_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    res = (
+        db.query(Reservation)
+        .filter(Reservation.id == reservation_id, Reservation.user_id == user.id)
+        .first()
+    )
+    if not res:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+    return res
+
+# -------- UPDATE --------
+@router.put("/{reservation_id:int}", response_model=ReservationOut, name="update_reservation")
 def update_reservation(
     reservation_id: int,
-    request: ReservationUpdate,
+    payload: ReservationUpdate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
 ):
-    reservation = db.query(models.Reservation).filter(
-        models.Reservation.id == reservation_id,
-        models.Reservation.user_id == current_user.id,
-    ).first()
-    if not reservation:
-        raise HTTPException(status_code=404, detail="Réservation non trouvée")
+    res = (
+        db.query(Reservation)
+        .filter(Reservation.id == reservation_id, Reservation.user_id == user.id)
+        .first()
+    )
+    if not res:
+        raise HTTPException(status_code=404, detail="Reservation not found")
 
-    if request.username is not None:
-        reservation.username = request.username
-    if request.email is not None:
-        reservation.email = request.email
-    if request.date is not None:
-        reservation.date = request.date
-    if request.offre is not None:
-        reservation.offre = request.offre
-    if request.quantity is not None:
-        reservation.quantity = request.quantity
+    if payload.date is not None:
+        res.date = payload.date
+    if payload.offer is not None:
+        res.offer = payload.offer
+    if payload.offre is not None:
+        res.offer = payload.offre
+    if payload.quantity is not None:
+        res.quantity = payload.quantity
+    if payload.status is not None:
+        res.status = payload.status
 
     db.commit()
-    db.refresh(reservation)
-    return {"message": "Réservation modifiée avec succès ✅", "id": reservation.id}
+    db.refresh(res)
+    return res
 
-@router.delete("/{reservation_id}", response_model=dict)
+# -------- DELETE --------
+@router.delete("/{reservation_id:int}", name="delete_reservation")
 def delete_reservation(
     reservation_id: int,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
 ):
-    reservation = db.query(models.Reservation).filter(
-        models.Reservation.id == reservation_id,
-        models.Reservation.user_id == current_user.id,
-    ).first()
-    if not reservation:
-        raise HTTPException(status_code=404, detail="Réservation non trouvée")
+    res = (
+        db.query(Reservation)
+        .filter(Reservation.id == reservation_id, Reservation.user_id == user.id)
+        .first()
+    )
+    if not res:
+        raise HTTPException(status_code=404, detail="Reservation not found")
 
-    db.delete(reservation)
+    db.delete(res)
     db.commit()
-    return {"message": "Réservation supprimée avec succès 🗑️", "id": reservation_id}
+    return {"message": "Reservation deleted"}
 
-# ✅ Route de paiement pour les réservations
-@router.post("/payment/simulate", response_model=PaymentResponse)
-async def simulate_reservation_payment(
-    payment_data: PaymentSimulation,
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Simule un paiement pour une réservation
-    """
-    reservation = db.query(models.Reservation).filter(
-        models.Reservation.id == payment_data.reservation_id,
-        models.Reservation.user_id == current_user.id
-    ).first()
-
-    if not reservation:
-        raise HTTPException(status_code=404, detail="Réservation non trouvée")
-
-    if reservation.status == "paid":
-        raise HTTPException(status_code=400, detail="Réservation déjà payée")
-
-    # Simulation du paiement
-    reservation.status = "paid"
-    reservation.payment_date = datetime.now()
-
-    db.commit()
-    db.refresh(reservation)
-
-    return {
-        "status": "success",
-        "message": "Paiement effectué avec succès",
-        "reservation_id": reservation.id,
-        "amount": calculate_price(reservation.offre, reservation.quantity),
-        "payment_date": reservation.payment_date
-    }
-
-# ✅ QR code pour l'utilisateur
-@router.get("/{reservation_id}/qrcode", response_model=dict)
-def get_reservation_qrcode(
+# -------- QR CODE PNG (pour <img src="/reservations/{id}/qrcode">) --------
+@router.get("/{reservation_id:int}/qrcode", name="reservation_qrcode")
+def reservation_qrcode(
     reservation_id: int,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
 ):
-    reservation = db.query(models.Reservation).filter(
-        models.Reservation.id == reservation_id,
-        models.Reservation.user_id == current_user.id,
-    ).first()
-    if not reservation:
-        raise HTTPException(status_code=404, detail="Réservation non trouvée")
-
-    qr_data = (
-        f"RÉSERVATION OLYMPIC GAMES\n"
-        f"ID: {reservation.id}\n"
-        f"Nom: {reservation.username}\n"
-        f"Email: {reservation.email}\n"
-        f"Date: {reservation.date}\n"
-        f"Offre: {reservation.offre}\n"
-        f"Quantité: {reservation.quantity}\n"
-        f"Statut: {reservation.status}\n"
+    # chercher un ticket payé lié à cette réservation et à l'utilisateur
+    t = (
+        db.query(Ticket)
+        .filter(Ticket.reservation_id == reservation_id, Ticket.user_id == user.id)
+        .order_by(Ticket.id.desc())
+        .first()
     )
+    if not t or not t.is_paid or not t.qr_code:
+        # pas de ticket, ou non payé, ou pas de payload → pas d'image
+        raise HTTPException(status_code=404, detail="QR indisponible pour cette réservation")
 
-    qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=10, border=4)
-    qr.add_data(qr_data)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
-
-    buffered = BytesIO()
-    img.save(buffered, format="PNG")
-    qr_code_base64 = base64.b64encode(buffered.getvalue()).decode()
-
-    return {
-        "qr_code": f"data:image/png;base64,{qr_code_base64}",
-        "reservation_data": {
-            "id": reservation.id,
-            "username": reservation.username,
-            "email": reservation.email,
-            "date": reservation.date.isoformat() if reservation.date else None,
-            "offre": reservation.offre,
-            "quantity": reservation.quantity,
-            "status": reservation.status,
-        },
-    }
-
-@router.get("/stats", response_model=dict)
-def get_reservation_stats(
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
-):
-    reservations = db.query(models.Reservation).filter(
-        models.Reservation.user_id == current_user.id
-    ).all()
-
-    total_reservations = len(reservations)
-    today = datetime.now().date()
-    upcoming_reservations = [r for r in reservations if r.date and r.date >= today]
-    next_reservation = min(upcoming_reservations, key=lambda x: x.date) if upcoming_reservations else None
-
-    return {
-        "total_reservations": total_reservations,
-        "next_reservation_date": next_reservation.date.isoformat() if next_reservation else None,
-        "next_reservation_offre": next_reservation.offre if next_reservation else None,
-        "active_reservations": len(upcoming_reservations),
-    }
+    img = qrcode.make(t.qr_code)
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="image/png")

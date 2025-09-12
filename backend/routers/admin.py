@@ -1,103 +1,113 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from database import get_db, SECRET_KEY, ALGORITHM
-import models
-from jose import JWTError, jwt
-from fastapi.security import OAuth2PasswordBearer
-from typing import List
+from sqlalchemy import func
+from typing import List, Optional
+from datetime import date as date_type
 from pydantic import BaseModel
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
-router = APIRouter()
+from database import get_db
+from models import User, Reservation, Ticket
+from routers.auth import get_current_user
 
-def get_admin_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
-        user = db.query(models.User).filter(models.User.email == email).first()
-        if not user or not user.is_admin:
-            raise HTTPException(status_code=403, detail="Accès administrateur requis")
-        return user
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Token invalide")
+router = APIRouter(prefix="/admin", tags=["admin"])
 
-class AdminStats(BaseModel):
-    total_reservations: int
-    pending_reservations: int
-    total_users: int
-    revenue: float
+# --- Guard ---
+def require_admin(user: User = Depends(get_current_user)) -> User:
+    if not getattr(user, "is_admin", False):
+        raise HTTPException(status_code=403, detail="Admin only")
+    return user
 
-def calculate_price(offre, quantity):
-    prices = {"Solo": 25, "Duo": 50, "Familiale": 150}
-    return prices.get(offre, 25) * quantity
+# --- Schemas ---
+class AdminReservationUpdate(BaseModel):
+    date: Optional[date_type] = None
+    offer: Optional[str] = None   # accepte 'offer'
+    offre: Optional[str] = None   # accepte 'offre'
+    quantity: Optional[int] = None
+    status: Optional[str] = None
 
-@router.get("/stats", response_model=AdminStats)
-def get_admin_stats(db: Session = Depends(get_db), admin_user: models.User = Depends(get_admin_user)):
-    total_reservations = db.query(models.Reservation).count()
-    pending_reservations = db.query(models.Reservation).filter(models.Reservation.status == "pending").count()
-    total_users = db.query(models.User).count()
-    approved_reservations = db.query(models.Reservation).filter(models.Reservation.status == "approved").all()
-    revenue = sum(calculate_price(r.offre, r.quantity) for r in approved_reservations)
+# ---------- STATS ----------
+@router.get("/stats", name="admin_stats")
+def admin_stats(db: Session = Depends(get_db), _: User = Depends(require_admin)):
+    users = db.query(func.count(User.id)).scalar() or 0
+    reservations = db.query(func.count(Reservation.id)).scalar() or 0
+    tickets = db.query(func.count(Ticket.id)).scalar() or 0
+    paid_tickets = db.query(func.count(Ticket.id)).filter(Ticket.is_paid == True).scalar() or 0
+    revenue = db.query(func.coalesce(func.sum(Ticket.amount), 0.0)).filter(Ticket.is_paid == True).scalar() or 0.0
+    return {"users": users, "reservations": reservations, "tickets": tickets,
+            "paid_tickets": paid_tickets, "revenue": float(revenue)}
+
+# ---------- LIST ALL RESERVATIONS ----------
+@router.get("/reservations/all", name="admin_reservations_all")
+def admin_reservations_all(db: Session = Depends(get_db), _: User = Depends(require_admin)) -> List[dict]:
+    rows = (
+        db.query(Reservation, User.username, User.email)
+        .join(User, Reservation.user_id == User.id)
+        .order_by(Reservation.id.desc())
+        .all()
+    )
+    out = []
+    for res, username, email in rows:
+        ticket = (
+            db.query(Ticket)
+            .filter(Ticket.reservation_id == res.id)
+            .order_by(Ticket.id.desc())
+            .first()
+        )
+        out.append({
+            "id": res.id,
+            "user_id": res.user_id,
+            "username": username,
+            "email": email,
+            "date": res.date,
+            "offer": res.offer,
+            "quantity": res.quantity,
+            "status": res.status,
+            "ticket_id": ticket.id if ticket else None,
+            "paid": bool(ticket.is_paid) if ticket else False,
+        })
+    return out
+
+# ---------- UPDATE (PUT) ----------
+@router.put("/reservations/{reservation_id}", name="admin_update_reservation")
+def admin_update_reservation(
+    reservation_id: int,
+    payload: AdminReservationUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    res = db.query(Reservation).filter(Reservation.id == reservation_id).first()
+    if not res:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+
+    if payload.date is not None:
+        res.date = payload.date
+    # prend 'offer' ou 'offre' depuis le front
+    if payload.offer is not None:
+        res.offer = payload.offer
+    if payload.offre is not None:
+        res.offer = payload.offre
+    if payload.quantity is not None:
+        res.quantity = payload.quantity
+    if payload.status is not None:
+        res.status = payload.status
+
+    db.commit()
+    db.refresh(res)
     return {
-        "total_reservations": total_reservations,
-        "pending_reservations": pending_reservations,
-        "total_users": total_users,
-        "revenue": revenue,
+        "id": res.id, "user_id": res.user_id, "date": res.date,
+        "offer": res.offer, "quantity": res.quantity, "status": res.status,
     }
 
-@router.get("/reservations/all", response_model=List[dict])
-def get_all_reservations(db: Session = Depends(get_db), admin_user: models.User = Depends(get_admin_user)):
-    reservations = db.query(models.Reservation).all()
-    return [
-        {
-            "id": r.id,
-            "username": r.username,
-            "email": r.email,
-            "date": r.date.isoformat() if r.date else None,
-            "offre": r.offre,
-            "quantity": r.quantity,
-            "status": getattr(r, "status", "pending"),
-        }
-        for r in reservations
-    ]
-
-@router.post("/reservations/{reservation_id}/approve")
-def approve_reservation(reservation_id: int, db: Session = Depends(get_db), admin_user: models.User = Depends(get_admin_user)):
-    reservation = db.query(models.Reservation).filter(models.Reservation.id == reservation_id).first()
-    if not reservation:
-        raise HTTPException(status_code=404, detail="Réservation non trouvée")
-    reservation.status = "approved"
+# ---------- DELETE ----------
+@router.delete("/reservations/{reservation_id}", name="admin_delete_reservation")
+def admin_delete_reservation(
+    reservation_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    res = db.query(Reservation).filter(Reservation.id == reservation_id).first()
+    if not res:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+    db.delete(res)
     db.commit()
-    db.refresh(reservation)
-    return {"message": "Réservation approuvée avec succès", "reservation": reservation}
-
-@router.post("/reservations/{reservation_id}/reject")
-def reject_reservation(reservation_id: int, db: Session = Depends(get_db), admin_user: models.User = Depends(get_admin_user)):
-    reservation = db.query(models.Reservation).filter(models.Reservation.id == reservation_id).first()
-    if not reservation:
-        raise HTTPException(status_code=404, detail="Réservation non trouvée")
-    reservation.status = "rejected"
-    db.commit()
-    db.refresh(reservation)
-    return {"message": "Réservation rejetée avec succès", "reservation": reservation}
-
-@router.put("/reservations/{reservation_id}")
-def update_reservation(reservation_id: int, reservation_data: dict, db: Session = Depends(get_db), admin_user: models.User = Depends(get_admin_user)):
-    reservation = db.query(models.Reservation).filter(models.Reservation.id == reservation_id).first()
-    if not reservation:
-        raise HTTPException(status_code=404, detail="Réservation non trouvée")
-    for key, value in reservation_data.items():
-        if hasattr(reservation, key):
-            setattr(reservation, key, value)
-    db.commit()
-    db.refresh(reservation)
-    return {"message": "Réservation modifiée avec succès", "reservation": reservation}
-
-@router.delete("/reservations/{reservation_id}")
-def delete_reservation(reservation_id: int, db: Session = Depends(get_db), admin_user: models.User = Depends(get_admin_user)):
-    reservation = db.query(models.Reservation).filter(models.Reservation.id == reservation_id).first()
-    if not reservation:
-        raise HTTPException(status_code=404, detail="Réservation non trouvée")
-    db.delete(reservation)
-    db.commit()
-    return {"message": "Réservation supprimée avec succès"}
+    return {"message": "Reservation deleted"}

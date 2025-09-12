@@ -47,17 +47,12 @@ export async function getProfile() {
 
 // Réservations
 export async function getMyReservations() {
-  const { data } = await api.get('/reservations/me');
+  const { data } = await api.get('/reservations');
   return data;
 }
 
 export async function createReservation(payload) {
-  const { data } = await api.post('/reservations/', payload);
-  return data;
-}
-
-export async function getReservationStats() {
-  const { data } = await api.get('/reservations/stats');
+  const { data } = await api.post('/reservations', payload);
   return data;
 }
 

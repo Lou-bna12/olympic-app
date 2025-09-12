@@ -1,6 +1,86 @@
 import React, { useState, useEffect } from 'react';
 import { getMyTickets } from '../services/api';
-import TicketCard from './TicketCard';
+
+// Petit composant interne qui gère l'affichage + le QR en blob
+function TicketItem({ ticket }) {
+  const [qrSrc, setQrSrc] = useState('');
+
+  useEffect(() => {
+    let revokeUrl = null;
+
+    async function loadQr() {
+      try {
+        if (ticket?.is_paid && ticket?.reservation_id) {
+          const token = localStorage.getItem('token');
+          const res = await fetch(
+            `http://localhost:8000/reservations/${ticket.reservation_id}/qrcode`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          if (!res.ok) {
+            setQrSrc('');
+            return;
+          }
+          // ⚠️ lire en BLOB (pas json)
+          const url = URL.createObjectURL(await res.blob());
+          setQrSrc(url);
+          revokeUrl = url;
+        } else {
+          setQrSrc('');
+        }
+      } catch (e) {
+        console.error('Erreur QR code:', e);
+        setQrSrc('');
+      }
+    }
+
+    loadQr();
+    return () => {
+      if (revokeUrl) URL.revokeObjectURL(revokeUrl);
+    };
+  }, [ticket?.id, ticket?.is_paid, ticket?.reservation_id]);
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-2">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Ticket #{ticket.id}
+          </h3>
+          <div className="text-sm text-gray-600">
+            Offre: <span className="font-medium">{ticket.offer_id}</span>
+          </div>
+          <div className="text-sm text-gray-600">
+            Réservation:{' '}
+            <span className="font-medium">{ticket.reservation_id ?? '—'}</span>
+          </div>
+          <div className="text-sm text-gray-600">
+            Statut:{' '}
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+              {ticket.is_paid ? 'Payé' : ticket.payment_status}
+            </span>
+          </div>
+        </div>
+
+        {/* Image QR si payé */}
+        {ticket.is_paid ? (
+          <div className="text-center">
+            <div className="text-sm font-medium text-gray-700 mb-2">
+              QR Code
+            </div>
+            <img
+              src={qrSrc}
+              alt={`QR du ticket #${ticket.id}`}
+              style={{ width: 160, height: 160, objectFit: 'contain' }}
+            />
+            <p className="mt-2 text-xs text-gray-500">
+              Scannez ce QR code à l’entrée
+            </p>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 const MyTickets = () => {
   const [tickets, setTickets] = useState([]);
@@ -11,10 +91,8 @@ const MyTickets = () => {
     try {
       setLoading(true);
       setError(null);
-      console.log('Fetching tickets...'); // ← AJOUTEZ ICI
       const data = await getMyTickets();
-      console.log('Tickets received:', data); // ← AJOUTEZ ICI
-      setTickets(data);
+      setTickets(data || []);
     } catch (err) {
       console.error('Erreur lors du chargement des tickets:', err);
       setError('Erreur lors du chargement des tickets');
@@ -62,12 +140,8 @@ const MyTickets = () => {
         </div>
       ) : (
         <div className="grid gap-6">
-          {tickets.map((ticket) => (
-            <TicketCard
-              key={ticket.id}
-              ticket={ticket}
-              onUpdate={fetchTickets}
-            />
+          {tickets.map((t) => (
+            <TicketItem key={t.id} ticket={t} />
           ))}
         </div>
       )}

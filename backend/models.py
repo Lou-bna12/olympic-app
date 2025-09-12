@@ -39,7 +39,7 @@ class Reservation(Base):
     username = Column(String(50))
     email = Column(String(100))
     date = Column(Date)
-    offre = Column(String(50))
+    offer = Column("offre", String(50)) 
     quantity = Column(Integer)
     status = Column(String(20), default="pending_payment")
     user_id = Column(Integer, ForeignKey("users.id"))
@@ -47,12 +47,14 @@ class Reservation(Base):
     # Relation
     user = relationship("User", back_populates="reservations")
 
+
 class Ticket(Base):
     __tablename__ = "tickets"
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     offer_id = Column(Integer, ForeignKey("offers.id"))
+    reservation_id = Column(Integer, ForeignKey("reservations.id"), nullable=True)  
     final_key = Column(String(100), unique=True, index=True)
     qr_code = Column(String(500), nullable=True)
     is_used = Column(Boolean, default=False)
