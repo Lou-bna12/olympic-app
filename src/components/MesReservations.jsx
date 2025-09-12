@@ -28,6 +28,7 @@ const MesReservations = () => {
 
   const navigate = useNavigate();
   const API = 'http://127.0.0.1:8000';
+  const getOfferName = (obj) => obj?.offer ?? obj?.offre ?? '';
 
   // Map "nom d'offre" -> id d'offre (adapte si besoin)
   const offerIdFromName = (name) => {
@@ -56,7 +57,7 @@ const MesReservations = () => {
           (r) => r.status === 'pending_payment'
         ).length,
         total_amount: reservations.reduce(
-          (total, r) => total + calculatePrice(r.offre, r.quantity),
+          (total, r) => total + calculatePrice(getOfferName(r), r.quantity),
           0
         ),
       });
