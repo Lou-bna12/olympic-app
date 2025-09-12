@@ -1,89 +1,92 @@
-from pydantic import BaseModel, EmailStr
-from datetime import date, datetime
-from typing import Optional
+from datetime import datetime, date
+from typing import Optional, List
+from pydantic import BaseModel
 
+# -------------------------------
 # Utilisateurs
-class UserCreate(BaseModel):
+# -------------------------------
+class UserBase(BaseModel):
     username: str
-    email: EmailStr
+    email: str
+
+class UserCreate(UserBase):
     password: str
 
-class UserOut(BaseModel):
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+class UserOut(UserBase):  # <- renommé ici
     id: int
-    username: str
-    email: EmailStr
     is_admin: bool
-    created_at: datetime
-    updated_at: datetime
 
     class Config:
         from_attributes = True
 
-class UserLogin(BaseModel):
-    email: EmailStr
-    password: str
 
+# -------------------------------
 # Réservations
+# -------------------------------
 class ReservationBase(BaseModel):
     username: str
+    email: str
     date: date
     offre: str
     quantity: int
 
 class ReservationCreate(ReservationBase):
-    email: str
+    pass
 
 class ReservationUpdate(BaseModel):
-    username: Optional[str] = None
-    email: Optional[str] = None
-    date: Optional[date] = None
-    offre: Optional[str] = None
     quantity: Optional[int] = None
+    status: Optional[str] = None
 
-class ReservationOut(ReservationBase):
-    id: int
-    email: str
-    status: str
-    user_id: Optional[int] = None
-
-    class Config:
-        from_attributes = True
-
-# AJOUTEZ CE SCHÉMA MANQUANT
 class ReservationResponse(ReservationBase):
     id: int
-    email: str
+    user_id: int
     status: str
-    user_id: Optional[int] = None
 
     class Config:
         from_attributes = True
 
-# Paiement
-class PaymentSimulation(BaseModel):
-    ticket_id: int
 
-class PaymentResponse(BaseModel):
-    status: str
-    message: str
-    ticket_id: int
-    amount: float
-    payment_date: datetime
+# -------------------------------
+# Tickets
+# -------------------------------
+class TicketCreate(BaseModel):
+    offer_id: int
+    reservation_id: Optional[int] = None
 
-    class Config:
-        from_attributes = True
-
-class TicketWithPayment(BaseModel):
+class TicketResponse(BaseModel):
     id: int
-    final_key: str
+    user_id: int
+    offer_id: int
+    reservation_id: Optional[int] = None
     qr_code: Optional[str] = None
     is_used: bool
     is_paid: bool
-    payment_status: str
-    payment_date: Optional[datetime] = None
     amount: float
-    offer_name: str
-    offer_price: float
+
+    class Config:
+        from_attributes = True
+
+
+# -------------------------------
+# Paiement
+# -------------------------------
+class PaymentSimulation(BaseModel):
+    ticket_id: Optional[int] = None
+    reservation_id: Optional[int] = None
+
+class PaymentResponse(BaseModel):
+    status: str
+    ticket_id: int
+    reservation_id: Optional[int] = None
+    payment_status: str
+    paid: bool
+    qr_payload: Optional[str] = None
+    amount: float
+    payment_date: Optional[datetime] = None
 
     class Config:
         from_attributes = True
