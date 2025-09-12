@@ -12,7 +12,7 @@ import qrcode
 
 router = APIRouter()
 
-# ------------------ Schemas ------------------
+#Schemas
 
 class ReservationRequest(BaseModel):
     username: str
@@ -24,7 +24,7 @@ class ReservationRequest(BaseModel):
 class ReservationUpdate(BaseModel):
     quantity: int
 
-# ------------------ Endpoints ------------------
+# Endpoints
 
 @router.post("/reservations")
 def create_reservation(
@@ -93,7 +93,7 @@ def delete_reservation(
     return {"message": "Réservation supprimée"}
 
 
-# ----------- QR Code d'une réservation -----------
+#QR Code d'une réservation
 @router.get("/reservations/{reservation_id}/qrcode")
 def get_reservation_qrcode(
     reservation_id: int,
@@ -134,7 +134,7 @@ def get_reservation_qrcode(
     return StreamingResponse(buf, media_type="image/png")
 
 
-# ----------- Stats réservations (admin ou user avancé) -----------
+#Stats réservations (admin ou user avancé)
 @router.get("/reservations/stats")
 def stats_reservations(
     db: Session = Depends(get_db),

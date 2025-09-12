@@ -4,7 +4,6 @@ import { getMyTickets } from '../services/api';
 
 const API = 'http://127.0.0.1:8000';
 
-// Carte de ticket (affichage + QR + bouton supprimer)
 function TicketItem({ ticket, onDelete }) {
   const [qrSrc, setQrSrc] = useState('');
 
@@ -143,7 +142,7 @@ const MyTickets = () => {
         alert(txt || 'Suppression impossible.');
         return;
       }
-      // Retirer localement
+
       setTickets((prev) => prev.filter((t) => t.id !== ticketId));
     } catch (e) {
       console.error('Erreur réseau suppression ticket:', e);

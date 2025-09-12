@@ -30,7 +30,6 @@ const MesReservations = () => {
   const API = 'http://127.0.0.1:8000';
 
   const calculatePrice = (offre, quantity) => {
-    // Si l'offre est undefined, utiliser une valeur par défaut
     const offerName = offre || 'Solo';
     const normalizedOffre = offerName.toLowerCase().trim();
 
@@ -38,7 +37,6 @@ const MesReservations = () => {
       solo: 25,
       duo: 50,
       familiale: 150,
-      // Ajout de variations possibles
       'offre solo': 25,
       'offre duo': 50,
       'offre familiale': 150,
@@ -47,12 +45,11 @@ const MesReservations = () => {
       'family offer': 150,
     };
 
-    return (prices[normalizedOffre] || 25) * (quantity || 1); // 25€ par défaut
+    return (prices[normalizedOffre] || 25) * (quantity || 1);
   };
 
   useEffect(() => {
     fetchReservations();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -93,10 +90,9 @@ const MesReservations = () => {
         const data = await res.json();
         console.log('Réservations récupérées:', data);
 
-        // Corriger les réservations avec offre undefined
         const correctedReservations = data.map((reservation) => ({
           ...reservation,
-          offre: reservation.offre || 'Solo', // Valeur par défaut
+          offre: reservation.offre || 'Solo',
         }));
 
         setReservations(correctedReservations);
@@ -286,7 +282,6 @@ const MesReservations = () => {
           Mes Réservations
         </h1>
 
-        {/* Statistiques */}
         <div className="bg-white rounded-xl shadow-sm p-6 mb-8 border border-gray-200">
           <h2 className="text-xl font-semibold text-gray-800 mb-6">
             Mes Statistiques
@@ -319,7 +314,6 @@ const MesReservations = () => {
           </div>
         </div>
 
-        {/* Réservations */}
         {reservations.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm p-12 text-center border border-gray-200">
             <div className="text-gray-400 mb-4">
@@ -347,7 +341,6 @@ const MesReservations = () => {
                   className="bg-white rounded-xl shadow-sm p-6 border border-gray-200 hover:shadow-md transition-shadow duration-200"
                 >
                   {editingId === reservation.id ? (
-                    // Mode édition
                     <div className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
@@ -416,7 +409,6 @@ const MesReservations = () => {
                       </div>
                     </div>
                   ) : (
-                    // Mode affichage
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                       <div className="flex-1 space-y-3">
                         <h3 className="text-lg font-semibold text-gray-900">
@@ -473,7 +465,6 @@ const MesReservations = () => {
                       </div>
 
                       <div className="flex gap-2">
-                        {/* QR seulement si payé/confirmé */}
                         {isPaid && (
                           <button
                             onClick={() => generateQRCode(reservation.id)}
@@ -484,7 +475,6 @@ const MesReservations = () => {
                           </button>
                         )}
 
-                        {/* Paiement si en attente */}
                         {reservation.status === 'pending_payment' && (
                           <button
                             onClick={() => openPaymentModal(reservation)}
@@ -519,7 +509,6 @@ const MesReservations = () => {
           </div>
         )}
 
-        {/* Modal de paiement */}
         {showPaymentModal && selectedReservation && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-xl p-6 w-full max-w-md">

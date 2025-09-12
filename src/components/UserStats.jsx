@@ -30,8 +30,13 @@ const UserStats = () => {
           pendingPayment,
           totalSpent,
         });
-      } catch (error) {
-        console.error('Erreur chargement stats:', error);
+      } catch {
+        setStats({
+          reservations: 0,
+          tickets: 0,
+          pendingPayment: 0,
+          totalSpent: 0,
+        });
       }
     };
 

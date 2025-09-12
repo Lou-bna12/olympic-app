@@ -40,7 +40,7 @@ def ping():
 def healthz():
     return {"ok": True}
 
-# ---- Debug des routes
+#Debug des routes
 @app.get("/__debug/routes")
 def debug_routes():
     return [

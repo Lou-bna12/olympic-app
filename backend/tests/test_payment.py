@@ -33,7 +33,7 @@ async def test_payment_flow():
         token = login_res.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
 
-        # 3) Créer un ticket (offre id=1 doit exister)
+        # 3) Créer un ticket 
         ticket_res = await ac.post("/tickets/?offer_id=1", headers=headers)
         assert ticket_res.status_code == 200, ticket_res.text
         ticket = ticket_res.json()

@@ -2,9 +2,8 @@ from datetime import datetime, date
 from typing import Optional, List
 from pydantic import BaseModel
 
-# -------------------------------
 # Utilisateurs
-# -------------------------------
+
 class UserBase(BaseModel):
     username: str
     email: str
@@ -16,7 +15,7 @@ class UserLogin(BaseModel):
     email: str
     password: str
 
-class UserOut(UserBase):  # <- renommé ici
+class UserOut(UserBase):  
     id: int
     is_admin: bool
 
@@ -24,9 +23,9 @@ class UserOut(UserBase):  # <- renommé ici
         from_attributes = True
 
 
-# -------------------------------
+
 # Réservations
-# -------------------------------
+
 class ReservationBase(BaseModel):
     username: str
     email: str
@@ -50,9 +49,9 @@ class ReservationResponse(ReservationBase):
         from_attributes = True
 
 
-# -------------------------------
+
 # Tickets
-# -------------------------------
+
 class TicketCreate(BaseModel):
     offer_id: int
     reservation_id: Optional[int] = None
@@ -71,9 +70,9 @@ class TicketResponse(BaseModel):
         from_attributes = True
 
 
-# -------------------------------
+
 # Paiement
-# -------------------------------
+
 class PaymentSimulation(BaseModel):
     ticket_id: Optional[int] = None
     reservation_id: Optional[int] = None

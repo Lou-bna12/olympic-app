@@ -11,7 +11,7 @@ from main import app
 async def test_admin_endpoints():
     """Tests complets des endpoints Admin"""
 
-    # ⚠️ Mets ici l'email + mot de passe de ton vrai admin existant
+
     ADMIN_EMAIL = "contact@jo-paris2024.com"
     ADMIN_PASSWORD = "France-2026*"
 

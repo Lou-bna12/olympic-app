@@ -38,11 +38,11 @@ async def test_login_user():
         # 1) Enregistrement
         await ac.post("/auth/register", json=user)
 
-        # 2) Connexion avec JSON (schéma UserLogin attend email + password)
+        # 2) Connexion
         response = await ac.post(
             "/auth/login",
             json={
-                "email": user["email"],     # ⚠️ email attendu par ton schéma
+                "email": user["email"],     
                 "password": user["password"]
             }
         )

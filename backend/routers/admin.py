@@ -11,13 +11,13 @@ from routers.auth import get_current_user
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-# --- Guard ---
+
 def require_admin(user: User = Depends(get_current_user)) -> User:
     if not getattr(user, "is_admin", False):
         raise HTTPException(status_code=403, detail="Admin only")
     return user
 
-# --- Schemas ---
+#Schemas
 class AdminReservationUpdate(BaseModel):
     date: Optional[date_type] = None
     offer: Optional[str] = None   # accepte 'offer'
@@ -25,7 +25,7 @@ class AdminReservationUpdate(BaseModel):
     quantity: Optional[int] = None
     status: Optional[str] = None
 
-# ---------- STATS ----------
+# STATS
 @router.get("/stats", name="admin_stats")
 def admin_stats(db: Session = Depends(get_db), _: User = Depends(require_admin)):
     users = db.query(func.count(User.id)).scalar() or 0
@@ -36,7 +36,7 @@ def admin_stats(db: Session = Depends(get_db), _: User = Depends(require_admin))
     return {"users": users, "reservations": reservations, "tickets": tickets,
             "paid_tickets": paid_tickets, "revenue": float(revenue)}
 
-# ---------- LIST ALL RESERVATIONS ----------
+# LIST ALL RESERVATIONS
 @router.get("/reservations/all", name="admin_reservations_all")
 def admin_reservations_all(db: Session = Depends(get_db), _: User = Depends(require_admin)) -> List[dict]:
     rows = (
@@ -67,7 +67,7 @@ def admin_reservations_all(db: Session = Depends(get_db), _: User = Depends(requ
         })
     return out
 
-# ---------- UPDATE (PUT) ----------
+# UPDATE (PUT)
 @router.put("/reservations/{reservation_id}", name="admin_update_reservation")
 def admin_update_reservation(
     reservation_id: int,
@@ -98,7 +98,7 @@ def admin_update_reservation(
         "offer": res.offer, "quantity": res.quantity, "status": res.status,
     }
 
-# ---------- DELETE ----------
+# DELETE
 @router.delete("/reservations/{reservation_id}", name="admin_delete_reservation")
 def admin_delete_reservation(
     reservation_id: int,

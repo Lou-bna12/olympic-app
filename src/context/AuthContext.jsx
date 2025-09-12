@@ -5,7 +5,7 @@ import React, {
   useContext,
   useCallback,
 } from 'react';
-import api, { getProfile } from '../services/api'; // Réimporter api
+import api, { getProfile } from '../services/api';
 
 const AuthContext = createContext();
 
@@ -18,7 +18,6 @@ const AuthProvider = ({ children }) => {
 
   const isAdmin = user?.is_admin === true;
 
-  // Déplacer fetchUser dans un useCallback pour stabiliser la référence
   const fetchUser = useCallback(async () => {
     try {
       const userData = await getProfile();
@@ -41,9 +40,8 @@ const AuthProvider = ({ children }) => {
       setLoading(false);
       setAuthReady(true);
     }
-  }, []); // Dépendances vides car fetchUser n'utilise que des setters
+  }, []);
 
-  // Vérifier si un token JWT est expiré
   const isTokenExpired = (token) => {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
@@ -74,7 +72,7 @@ const AuthProvider = ({ children }) => {
     };
 
     initAuth();
-  }, [fetchUser]); // Ajouter fetchUser aux dépendances
+  }, [fetchUser]);
 
   // Connexion
   const login = async (email, password) => {
@@ -90,7 +88,6 @@ const AuthProvider = ({ children }) => {
       // Stocker le token d'accès
       localStorage.setItem('token', access_token);
 
-      // Stocker le refresh token si fourni
       if (refresh_token) {
         localStorage.setItem('refresh_token', refresh_token);
       }

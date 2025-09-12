@@ -33,7 +33,7 @@ async def test_tickets_flow():
         token = login_res.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
 
-        # 3) Créer un ticket (⚠️ offer_id en paramètre de query)
+        # 3) Créer un ticket 
         ticket_res = await ac.post(
             "/tickets/?offer_id=1",
             headers=headers

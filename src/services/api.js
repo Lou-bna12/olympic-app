@@ -68,7 +68,7 @@ export async function simulatePayment(ticketId) {
   return data;
 }
 
-// ---------- Admin ----------
+// Admin
 export async function getAdminStats() {
   const { data } = await api.get('/admin/stats');
   return data;

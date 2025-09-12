@@ -53,7 +53,7 @@ def simulate_payment(
         # 3) auto-création si absent
         if not ticket:
             offer = db.query(Offer).filter(Offer.name.ilike(res.offer)).first()
-            offer_id = offer.id if offer else 1  # fallback offre "Solo" (id=1)
+            offer_id = offer.id if offer else 1  
             ticket = Ticket(
                 user_id=user.id,
                 offer_id=offer_id,

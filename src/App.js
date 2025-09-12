@@ -19,7 +19,7 @@ import MyTickets from './components/MyTickets.jsx';
 
 import { useAuth } from './context/AuthContext';
 
-// --- Composant Indicateur de Chargement ---
+//Composant Indicateur de Chargement
 function IndicateurChargement() {
   return (
     <div className="flex justify-center items-center h-64">
@@ -29,7 +29,7 @@ function IndicateurChargement() {
   );
 }
 
-// --- Wrapper pour protéger les routes ---
+//Wrapper pour protéger les routes
 function RequireAuth({ children }) {
   const { user, loading } = useAuth();
   const location = useLocation();
@@ -46,7 +46,7 @@ function RequireAuth({ children }) {
   return children;
 }
 
-// --- Page 404 personnalisée ---
+//Page 404 personnalisée
 function PageNotFound() {
   return (
     <div className="text-center py-20">

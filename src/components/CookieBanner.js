@@ -4,10 +4,8 @@ const CookieBanner = () => {
   const [showBanner, setShowBanner] = useState(false);
 
   useEffect(() => {
-    // Vérifier si l'utilisateur a déjà fait un choix
     const cookiesAccepted = localStorage.getItem('cookiesAccepted');
     if (cookiesAccepted === null) {
-      // Petit délai pour que le chargement de la page se termine
       setTimeout(() => {
         setShowBanner(true);
       }, 1000);

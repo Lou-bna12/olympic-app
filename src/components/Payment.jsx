@@ -1,83 +1,57 @@
 import React, { useState } from 'react';
-import { simulatePayment } from '../services/api';
+import { useNavigate } from 'react-router-dom';
 
-const Payment = ({ ticket, onPaymentSuccess, onCancel }) => {
+const API = 'http://127.0.0.1:8000';
+
+export default function Payment({ ticketId, onPaid }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const handlePayment = async () => {
     setLoading(true);
     setError('');
 
     try {
-      const result = await simulatePayment(ticket.id);
-      onPaymentSuccess(result);
-    } catch (error) {
-      console.error('Erreur de paiement:', error);
-      setError('Erreur lors du paiement');
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API}/payment/simulate`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ticket_id: ticketId }),
+      });
+
+      if (!res.ok) {
+        setError('Erreur lors du paiement');
+        return;
+      }
+
+      const data = await res.json();
+      if (data.paid) {
+        onPaid && onPaid();
+        navigate('/mes-tickets');
+      } else {
+        setError('Paiement refusé');
+      }
+    } catch {
+      setError('Erreur réseau lors du paiement');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100]">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-        <h2 className="text-xl font-bold mb-4">Paiement</h2>
-
-        <div className="mb-4">
-          <h3 className="font-semibold">Détails du ticket</h3>
-          <p>Offre: {ticket.offer_name}</p>
-          <p>Prix: {ticket.amount} €</p>
-        </div>
-
-        <div className="mb-6 p-4 bg-gray-100 rounded">
-          <h4 className="font-semibold mb-2">Mode de paiement (simulation)</h4>
-          <div className="space-y-2">
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name="payment"
-                defaultChecked
-                className="mr-2"
-              />
-              💳 Carte bancaire
-            </label>
-            <label className="flex items-center">
-              <input type="radio" name="payment" className="mr-2" />
-              📱 PayPal
-            </label>
-            <label className="flex items-center">
-              <input type="radio" name="payment" className="mr-2" />
-              🏦 Virement bancaire
-            </label>
-          </div>
-        </div>
-
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            {error}
-          </div>
-        )}
-
-        <div className="flex space-x-3">
-          <button
-            onClick={handlePayment}
-            disabled={loading}
-            className="flex-1 bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600 disabled:opacity-50"
-          >
-            {loading ? 'Traitement...' : 'Payer maintenant'}
-          </button>
-          <button
-            onClick={onCancel}
-            className="flex-1 bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600"
-          >
-            Annuler
-          </button>
-        </div>
-      </div>
+    <div className="mt-4">
+      {error && <p className="text-red-600">{error}</p>}
+      <button
+        onClick={handlePayment}
+        disabled={loading}
+        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+      >
+        {loading ? 'Paiement en cours...' : 'Payer maintenant'}
+      </button>
     </div>
   );
-};
-
-export default Payment;
+}

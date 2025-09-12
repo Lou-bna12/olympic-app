@@ -16,13 +16,11 @@ const Header = () => {
   return (
     <header className="bg-white shadow-md sticky top-0 z-50">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-        {/* Logo */}
         <Link to="/" className="flex items-center gap-2">
           <img src="/images/logo.png" alt="Logo" className="w-8 h-8" />
           <span className="font-semibold text-blue-600">JO Paris 2024</span>
         </Link>
 
-        {/* Liens */}
         <div className="flex items-center gap-4">
           {!token ? (
             <>

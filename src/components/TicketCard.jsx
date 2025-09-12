@@ -6,7 +6,6 @@ const API = 'http://127.0.0.1:8000';
 export default function TicketCard({ ticket, onUpdate }) {
   const [qrSrc, setQrSrc] = useState('');
 
-  // Charge le QR (si ticket payé)
   useEffect(() => {
     let revokeUrl = null;
 
@@ -56,7 +55,7 @@ export default function TicketCard({ ticket, onUpdate }) {
         alert(txt || 'Suppression impossible.');
         return;
       }
-      // Rafraîchir la liste
+
       onUpdate && onUpdate();
     } catch (e) {
       console.error('Erreur suppression ticket:', e);
