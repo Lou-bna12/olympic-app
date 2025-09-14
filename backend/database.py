@@ -15,7 +15,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 # URL de connexion PostgreSQL
-DATABASE_URL = "postgresql://postgres:loubna12@localhost:5432/olympicdb"
+DATABASE_URL = "postgresql://olympicuser:Loubna123%21@127.0.0.1:5432/olympicdb"
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
