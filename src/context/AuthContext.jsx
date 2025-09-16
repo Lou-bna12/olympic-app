@@ -75,6 +75,7 @@ const AuthProvider = ({ children }) => {
   }, [fetchUser]);
 
   // Connexion
+  // Connexion
   const login = async (email, password) => {
     try {
       setAuthError(null);
@@ -83,16 +84,11 @@ const AuthProvider = ({ children }) => {
         password,
       });
 
-      const { access_token, refresh_token } = response.data;
+      // Récupère uniquement le token renvoyé par le backend
+      const { access_token } = response.data;
 
-      // Stocker le token d'accès si présent
       if (access_token) {
         localStorage.setItem('token', access_token);
-      }
-
-      // Stocker le refresh_token seulement si présent
-      if (refresh_token) {
-        localStorage.setItem('refresh_token', refresh_token);
       }
 
       await fetchUser();
