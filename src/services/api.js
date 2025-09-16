@@ -1,9 +1,9 @@
 import axios from 'axios';
 
-// On récupère l'URL depuis la variable d’environnement
-const API_URL = process.env.REACT_APP_API_URL;
+// On récupère l'URL depuis la variable d’environnement ou fallback localhost
+const API_URL = process.env.REACT_APP_API_URL || 'https://api.olympicapp.shop';
 
-console.log(' API URL utilisée :', API_URL);
+console.log('🌍 API URL utilisée :', API_URL);
 
 const api = axios.create({
   baseURL: API_URL,
