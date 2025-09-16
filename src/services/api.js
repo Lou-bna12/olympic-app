@@ -1,80 +1,131 @@
 import axios from 'axios';
 
-// Vérification de la variable injectée par Vercel
-console.log(' API URL injectée :', process.env.REACT_APP_API_URL);
-
+// URL de l'API (Vercel => prend REACT_APP_API_URL, sinon localhost)
 const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000';
+console.log(' API URL utilisée :', API_URL);
 
 // Création d'une instance Axios
 const api = axios.create({
   baseURL: API_URL,
-  withCredentials: false,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-//AUTH
+//  AUTH
+export async function registerUser(userData) {
+  try {
+    const response = await api.post('/auth/register', userData);
+    return response.data;
+  } catch (error) {
+    console.error('Erreur registerUser:', error);
+    throw error;
+  }
+}
 
-// Register
-export const registerUser = (userData) => api.post('/auth/register', userData);
+export async function loginUser(credentials) {
+  try {
+    const response = await api.post('/auth/login', credentials);
+    return response.data;
+  } catch (error) {
+    console.error('Erreur loginUser:', error);
+    throw error;
+  }
+}
 
-// Login
-export const loginUser = (credentials) => api.post('/auth/login', credentials);
+//Récupérer le profil utilisateur connecté
+export async function getProfile(token) {
+  try {
+    const response = await api.get('/auth/me', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Erreur getProfile:', error);
+    throw error;
+  }
+}
 
-// Get current user
-export const getCurrentUser = (token) =>
-  api.get('/auth/me', {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+//  RESERVATIONS
+export async function createReservation(data, token) {
+  try {
+    const response = await api.post('/reservations', data, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Erreur createReservation:', error);
+    throw error;
+  }
+}
 
-// = RESERVATIONS
-
-export const createReservation = (reservationData, token) =>
-  api.post('/reservations', reservationData, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-export const getReservations = (token) =>
-  api.get('/reservations', {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+export async function getReservations(token) {
+  try {
+    const response = await api.get('/reservations', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Erreur getReservations:', error);
+    throw error;
+  }
+}
 
 //  TICKETS
-
-export const getMyTickets = (token) =>
-  api.get('/tickets/me', {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-export const createTicket = (offerId, token) =>
-  api.post(
-    `/tickets/?offer_id=${offerId}`,
-    {},
-    {
+export async function getMyTickets(token) {
+  try {
+    const response = await api.get('/tickets/me', {
       headers: { Authorization: `Bearer ${token}` },
-    }
-  );
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Erreur getMyTickets:', error);
+    throw error;
+  }
+}
 
-// PAYMENT MOCK
+export async function createTicket(offerId, token) {
+  try {
+    const response = await api.post(
+      `/tickets/?offer_id=${offerId}`,
+      {},
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Erreur createTicket:', error);
+    throw error;
+  }
+}
 
-export const simulatePayment = (paymentData, token) =>
-  api.post('/payment/simulate', paymentData, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+//  PAYMENT MOCK
+export async function simulatePayment(ticketId, token) {
+  try {
+    const response = await api.post(
+      '/payment/simulate',
+      { ticket_id: ticketId },
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Erreur simulatePayment:', error);
+    throw error;
+  }
+}
 
 //  ADMIN
-
-export const getAllTickets = (token) =>
-  api.get('/tickets', {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-export const updateTicketStatus = (ticketId, status, token) =>
-  api.put(
-    `/tickets/${ticketId}`,
-    { status },
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
-
-export default api;
+export async function getAllTickets(token) {
+  try {
+    const response = await api.get('/tickets', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Erreur getAllTickets:', error);
+    throw error;
+  }
+}
