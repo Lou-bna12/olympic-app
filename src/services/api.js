@@ -1,7 +1,12 @@
 import axios from 'axios';
 
+// On récupère l'URL depuis la variable d’environnement
+const API_URL = process.env.REACT_APP_API_URL;
+
+console.log(' API URL utilisée :', API_URL);
+
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL, // Utilise la variable d’environnement
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
