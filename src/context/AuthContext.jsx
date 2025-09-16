@@ -85,9 +85,12 @@ const AuthProvider = ({ children }) => {
 
       const { access_token, refresh_token } = response.data;
 
-      // Stocker le token d'accès
-      localStorage.setItem('token', access_token);
+      // Stocker le token d'accès si présent
+      if (access_token) {
+        localStorage.setItem('token', access_token);
+      }
 
+      // Stocker le refresh_token seulement si présent
       if (refresh_token) {
         localStorage.setItem('refresh_token', refresh_token);
       }
