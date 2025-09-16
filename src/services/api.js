@@ -129,3 +129,4 @@ export async function getAllTickets(token) {
     throw error;
   }
 }
+export default api;
