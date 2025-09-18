@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-const API = 'http://127.0.0.1:8000';
+import { API_URL } from '../services/api'; // ✅ import
 
 export default function Payment({ ticketId, onPaid }) {
   const [loading, setLoading] = useState(false);
@@ -14,7 +13,8 @@ export default function Payment({ ticketId, onPaid }) {
 
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API}/payment/simulate`, {
+      const res = await fetch(`${API_URL}/payment/simulate`, {
+        // ✅ corrigé
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

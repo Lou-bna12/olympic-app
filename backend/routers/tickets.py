@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
 import models
+from fastapi import Query
 from routers.auth import get_current_user
 
 router = APIRouter()
@@ -9,7 +10,7 @@ router = APIRouter()
 #Créer un ticket 
 @router.post("/tickets/")
 def create_ticket(
-    offer_id: int,
+    offer_id: int =  Query(..., description="ID de l'offre"),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):

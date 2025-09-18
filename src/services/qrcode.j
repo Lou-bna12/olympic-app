@@ -7,6 +7,6 @@ export async function getQrImageUrl(reservationId) {
   //  Ne pas faire res.json() : c'est une IMAGE
   if (!res.ok) throw new Error(await res.text());
 
-  const blob = await res.blob();            // <- clé : lire en "blob"
-  return URL.createObjectURL(blob);         // <- URL temporaire pour <img src=...>
+  const blob = await res.blob();           
+  return URL.createObjectURL(blob);         
 }

@@ -16,8 +16,9 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
+        "https://olympic-app.vercel.app",
+        "https://olympicapp.shop",
+        "https://www.olympicapp.shop",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -34,7 +35,7 @@ app.include_router(tickets_router)
 @app.get("/ping", tags=["health"])
 
 def ping():
-    return {"message": "PARFAIT 👌"}
+    return {"message": "PARFAIT "}
 
 @app.get("/healthz", tags=["health"])
 def healthz():

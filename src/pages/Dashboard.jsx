@@ -7,7 +7,7 @@ import {
   FaListAlt,
   FaPlusCircle,
 } from 'react-icons/fa';
-import { getMyReservations, getMyTickets } from '../services/api';
+import { getMyReservations, getMyTickets, API_URL } from '../services/api';
 
 const Dashboard = () => {
   const { user, isAdmin } = useAuth();
@@ -45,15 +45,16 @@ const Dashboard = () => {
         let additional = {};
         try {
           const token = localStorage.getItem('token');
-          const res = await fetch('http://127.0.0.1:8000/reservations/stats', {
+          const res = await fetch(`${API_URL}/reservations/stats`, {
+            // ✅ corrigé
             headers: {
               Authorization: `Bearer ${token}`,
               'Content-Type': 'application/json',
             },
           });
           if (res.ok) additional = await res.json();
-        } catch (e) {
-          // Nettoyé: suppression du console.error
+        } catch {
+          // silencieux
         }
 
         setStats({
@@ -63,8 +64,8 @@ const Dashboard = () => {
           totalSpent,
           ...additional,
         });
-      } catch (error) {
-        // Nettoyé: suppression du console.error
+      } catch {
+        // silencieux
       } finally {
         setLoading(false);
       }
