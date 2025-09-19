@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
-import { API_URL } from '../services/api'; // ✅ corrigé : import nommé
-import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import { API_URL } from '../services/api';
 
-const Reservation = () => {
+const Reservation = ({ user }) => {
   const [formData, setFormData] = useState({
-    username: '',
-    email: '',
+    username: user?.username || '',
+    email: user?.email || '',
     date: '',
-    offre: '',
+    offer: '',
     quantity: 1,
   });
 
-  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
+  // Gestion du changement dans les inputs
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -20,80 +22,144 @@ const Reservation = () => {
     });
   };
 
-  const handleSubmit = async (e) => {
+  // Soumission du formulaire
+  const onSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
 
     try {
-      const res = await axios.post(`${API_URL}/reservations`, formData, {
+      const token = localStorage.getItem('token');
+
+      // ✅ Normalisation des données envoyées (CORRIGÉ: "offer" → "offre")
+      const data = {
+        username: formData.username,
+        email: formData.email,
+        date: new Date(formData.date).toISOString().split('T')[0], // format YYYY-MM-DD
+        offre: formData.offer, // ← CHANGEMENT ICI: "offer" → "offre"
+        quantity: parseInt(formData.quantity, 10),
+      };
+
+      console.log('Payload envoyé:', data);
+
+      const res = await fetch(`${API_URL}/reservations`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
+        body: JSON.stringify(data),
       });
-      setMessage('✅ Réservation réussie !');
-      console.log('Réservation créée :', res.data);
+
+      if (res.ok) {
+        const reservation = await res.json();
+        console.log('Réservation créée:', reservation);
+        alert('Réservation réussie ✅');
+        navigate('/mes-reservations');
+      } else {
+        const errorText = await res.text();
+        console.error('Erreur API:', errorText);
+        alert('Erreur lors de la réservation: ' + errorText);
+      }
     } catch (err) {
-      console.error('Erreur lors de la réservation :', err);
-      setMessage('❌ Erreur lors de la réservation');
+      console.error('Erreur réseau:', err);
+      alert('Erreur réseau, veuillez réessayer.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-lg mx-auto mt-10 bg-white shadow-lg rounded-lg p-6">
-      <h2 className="text-2xl font-bold mb-4">Réserver un billet</h2>
-      {message && <p className="mb-4 text-center">{message}</p>}
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-md">
+        <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+          Réserver un billet
+        </h2>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input
-          type="text"
-          name="username"
-          placeholder="Nom"
-          value={formData.username}
-          onChange={handleChange}
-          className="w-full border px-3 py-2 rounded"
-          required
-        />
-        <input
-          type="email"
-          name="email"
-          placeholder="Email"
-          value={formData.email}
-          onChange={handleChange}
-          className="w-full border px-3 py-2 rounded"
-          required
-        />
-        <input
-          type="date"
-          name="date"
-          value={formData.date}
-          onChange={handleChange}
-          className="w-full border px-3 py-2 rounded"
-          required
-        />
-        <input
-          type="text"
-          name="offre"
-          placeholder="Offre"
-          value={formData.offre}
-          onChange={handleChange}
-          className="w-full border px-3 py-2 rounded"
-          required
-        />
-        <input
-          type="number"
-          name="quantity"
-          min="1"
-          value={formData.quantity}
-          onChange={handleChange}
-          className="w-full border px-3 py-2 rounded"
-          required
-        />
-        <button
-          type="submit"
-          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
-        >
-          Réserver
-        </button>
-      </form>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Nom complet
+            </label>
+            <input
+              type="text"
+              name="username"
+              value={formData.username}
+              onChange={handleChange}
+              required
+              className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Email
+            </label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              required
+              className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Date
+            </label>
+            <input
+              type="date"
+              name="date"
+              value={formData.date}
+              onChange={handleChange}
+              required
+              className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Offre
+            </label>
+            <select
+              name="offer"
+              value={formData.offer}
+              onChange={handleChange}
+              required
+              className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">-- Choisir une offre --</option>
+              <option value="Solo">Solo - 25€</option>
+              <option value="Duo">Duo - 50€</option>
+              <option value="Familiale">Familiale - 150€</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Quantité
+            </label>
+            <input
+              type="number"
+              name="quantity"
+              min="1"
+              value={formData.quantity}
+              onChange={handleChange}
+              required
+              className="mt-1 block w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+          >
+            {loading ? 'Réservation...' : 'Réserver'}
+          </button>
+        </form>
+      </div>
     </div>
   );
 };

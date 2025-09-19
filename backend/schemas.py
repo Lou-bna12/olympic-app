@@ -23,14 +23,13 @@ class UserOut(UserBase):
         from_attributes = True
 
 
-
 # Réservations
 
 class ReservationBase(BaseModel):
     username: str
     email: str
     date: date
-    offre: str
+    offre: str  # ← CORRIGÉ: "offer" → "offre"
     quantity: int
 
 class ReservationCreate(ReservationBase):
@@ -47,7 +46,6 @@ class ReservationResponse(ReservationBase):
 
     class Config:
         from_attributes = True
-
 
 
 # Tickets
@@ -68,7 +66,6 @@ class TicketResponse(BaseModel):
 
     class Config:
         from_attributes = True
-
 
 
 # Paiement

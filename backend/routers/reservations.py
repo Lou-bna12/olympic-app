@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
 from pydantic import BaseModel
-from typing import List
 import models
 from routers.auth import get_current_user
 from fastapi.responses import StreamingResponse
@@ -12,19 +11,19 @@ import qrcode
 
 router = APIRouter()
 
-#Schemas
+# ------------------ Schemas ------------------
 
 class ReservationRequest(BaseModel):
     username: str
     email: str
     date: date_type
-    offre: str
+    offre: str  # ← CORRIGÉ: "offer" → "offre"
     quantity: int
 
 class ReservationUpdate(BaseModel):
     quantity: int
 
-# Endpoints
+# ------------------ Endpoints ------------------
 
 @router.post("/reservations")
 def create_reservation(
@@ -32,13 +31,17 @@ def create_reservation(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
+    # Normaliser l'offre (Solo, Duo, Familiale)
+    normalized_offer = request.offre.strip().capitalize()  # ← CORRIGÉ: request.offer → request.offre
+
     reservation = models.Reservation(
         user_id=current_user.id,
         date=request.date,
-        offer=request.offre,
+        offer=normalized_offer, 
         quantity=request.quantity,
         status="pending_payment"
     )
+
     db.add(reservation)
     db.commit()
     db.refresh(reservation)
@@ -50,7 +53,9 @@ def list_reservations(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    return db.query(models.Reservation).filter(models.Reservation.user_id == current_user.id).all()
+    return db.query(models.Reservation).filter(
+        models.Reservation.user_id == current_user.id
+    ).all()
 
 
 @router.put("/reservations/{reservation_id}")
@@ -88,12 +93,17 @@ def delete_reservation(
     if not reservation:
         raise HTTPException(status_code=404, detail="Réservation introuvable")
 
+    # Supprimer les tickets liés avant la réservation
+    db.query(models.Ticket).filter(
+        models.Ticket.reservation_id == reservation.id
+    ).delete()
+
     db.delete(reservation)
     db.commit()
     return {"message": "Réservation supprimée"}
 
 
-#QR Code d'une réservation
+# ----------- QR Code d'une réservation -----------
 @router.get("/reservations/{reservation_id}/qrcode")
 def get_reservation_qrcode(
     reservation_id: int,
@@ -115,7 +125,6 @@ def get_reservation_qrcode(
     if not ticket or not ticket.qr_code:
         raise HTTPException(status_code=404, detail="QR code introuvable")
 
-    # Générer un PNG à partir du texte stocké dans ticket.qr_code
     qr = qrcode.QRCode(
         version=1,
         error_correction=qrcode.constants.ERROR_CORRECT_L,
@@ -126,7 +135,6 @@ def get_reservation_qrcode(
     qr.make(fit=True)
 
     img = qr.make_image(fill_color="black", back_color="white")
-
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     buf.seek(0)
@@ -134,14 +142,18 @@ def get_reservation_qrcode(
     return StreamingResponse(buf, media_type="image/png")
 
 
-#Stats réservations (admin ou user avancé)
+# ----------- Stats réservations -----------
 @router.get("/reservations/stats")
 def stats_reservations(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    total_reservations = db.query(models.Reservation).filter(models.Reservation.user_id == current_user.id).count()
-    total_tickets = db.query(models.Ticket).filter(models.Ticket.user_id == current_user.id).count()
+    total_reservations = db.query(models.Reservation).filter(
+        models.Reservation.user_id == current_user.id
+    ).count()
+    total_tickets = db.query(models.Ticket).filter(
+        models.Ticket.user_id == current_user.id
+    ).count()
     total_paid = db.query(models.Ticket).filter(
         models.Ticket.user_id == current_user.id,
         models.Ticket.is_paid == True

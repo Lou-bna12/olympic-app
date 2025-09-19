@@ -2,15 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
 import models
-from fastapi import Query
 from routers.auth import get_current_user
 
 router = APIRouter()
 
-#Créer un ticket 
+# --- Créer un ticket ---
 @router.post("/tickets/")
 def create_ticket(
-    offer_id: int =  Query(..., description="ID de l'offre"),
+    offer_id: int,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
@@ -29,7 +28,7 @@ def create_ticket(
     return ticket
 
 
-# Récupérer les tickets de l'utilisateur connecté 
+# --- Récupérer les tickets de l'utilisateur connecté ---
 @router.get("/tickets/me")
 def get_my_tickets(
     db: Session = Depends(get_db),
@@ -38,7 +37,7 @@ def get_my_tickets(
     return db.query(models.Ticket).filter(models.Ticket.user_id == current_user.id).all()
 
 
-#Supprimer un ticket
+# --- Supprimer un ticket ---
 @router.delete("/tickets/{ticket_id}")
 def delete_ticket(
     ticket_id: int,

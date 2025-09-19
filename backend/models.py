@@ -39,7 +39,7 @@ class Reservation(Base):
     username = Column(String(50))
     email = Column(String(100))
     date = Column(Date)
-    offer = Column("offre", String(50)) 
+    offer = Column(String(50), nullable=False)  
     quantity = Column(Integer)
     status = Column(String(20), default="pending_payment")
     user_id = Column(Integer, ForeignKey("users.id"))

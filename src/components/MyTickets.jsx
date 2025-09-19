@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FiTrash2 } from 'react-icons/fi';
-import { getMyTickets, API_URL } from '../services/api'; // ✅ import API_URL
+import { getMyTickets, API_URL } from '../services/api';
 
 function TicketItem({ ticket, onDelete }) {
   const [qrSrc, setQrSrc] = useState('');
@@ -12,7 +12,7 @@ function TicketItem({ ticket, onDelete }) {
         if (ticket?.is_paid && ticket?.reservation_id) {
           const token = localStorage.getItem('token');
           const res = await fetch(
-            `${API_URL}/reservations/${ticket.reservation_id}/qrcode`, // ✅ corrigé
+            `${API_URL}/reservations/${ticket.reservation_id}/qrcode`,
             { headers: { Authorization: `Bearer ${token}` } }
           );
           if (!res.ok) return;
@@ -81,7 +81,6 @@ const MyTickets = () => {
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/tickets/${ticketId}`, {
-        // ✅ corrigé
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });

@@ -9,6 +9,14 @@ import api, { getProfile } from '../services/api';
 
 const AuthContext = createContext();
 
+const setAuthHeader = (token) => {
+  if (token) {
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  } else {
+    delete api.defaults.headers.common['Authorization'];
+  }
+};
+
 const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -32,7 +40,7 @@ const AuthProvider = ({ children }) => {
 
       if (error.response?.status === 401) {
         setAuthError('Session expirée. Veuillez vous reconnecter.');
-        logout();
+        logout(); // nettoie token + état
       } else {
         setAuthError('Erreur lors de la récupération du profil utilisateur.');
       }
@@ -56,12 +64,15 @@ const AuthProvider = ({ children }) => {
   useEffect(() => {
     const initAuth = async () => {
       const token = localStorage.getItem('token');
+
       if (token) {
         if (isTokenExpired(token)) {
           console.warn('Token expiré, déconnexion automatique');
           logout();
           setAuthError('Votre session a expiré. Veuillez vous reconnecter.');
         } else {
+          // IMPORTANT : propager le token sur l’instance Axios
+          setAuthHeader(token);
           await fetchUser();
         }
       } else {
@@ -75,22 +86,27 @@ const AuthProvider = ({ children }) => {
   }, [fetchUser]);
 
   // Connexion
-  // Connexion
   const login = async (email, password) => {
     try {
       setAuthError(null);
-      const response = await api.post('/auth/login', {
-        email,
-        password,
-      });
+      const response = await api.post('/auth/login', { email, password });
 
-      // Récupère uniquement le token renvoyé par le backend
       const { access_token } = response.data;
 
       if (access_token) {
+        // 1) Stocker le token
         localStorage.setItem('token', access_token);
+        // 2) Le mettre dans Axios pour les prochaines requêtes
+        setAuthHeader(access_token);
+        // 3) Passer en "authentifié" immédiatement (l’API confirmera avec /auth/me)
+        setIsAuthenticated(true);
+      } else {
+        console.error('❌ Pas de token reçu :', response.data);
+        setAuthError('Réponse de login invalide.');
+        return { success: false, error: 'Réponse de login invalide' };
       }
 
+      // Récupérer le profil
       await fetchUser();
       return { success: true };
     } catch (error) {
@@ -121,9 +137,10 @@ const AuthProvider = ({ children }) => {
         password,
       });
 
-      // Si l'API retourne un token directement après l'inscription
       if (response.data.access_token) {
         localStorage.setItem('token', response.data.access_token);
+        setAuthHeader(response.data.access_token);
+        setIsAuthenticated(true);
         await fetchUser();
         return { success: true, autoLogin: true };
       }
@@ -136,7 +153,6 @@ const AuthProvider = ({ children }) => {
       if (error.response?.status === 409) {
         errorMessage = "Cet email ou nom d'utilisateur est déjà utilisé";
       } else if (error.response?.data?.errors) {
-        // Gestion des erreurs de validation du backend
         const errors = error.response.data.errors;
         errorMessage = Object.values(errors).flat().join(', ');
       } else if (!error.response) {
@@ -148,20 +164,19 @@ const AuthProvider = ({ children }) => {
     }
   };
 
-  // Rafraîchir le token
+  // Rafraîchir le token (si tu l’utilises)
   const refreshToken = async () => {
     try {
       const refreshToken = localStorage.getItem('refresh_token');
-      if (!refreshToken) {
-        throw new Error('No refresh token available');
-      }
+      if (!refreshToken) throw new Error('No refresh token available');
 
       const response = await api.post('/auth/refresh', {
         refresh_token: refreshToken,
       });
-
       const { access_token } = response.data;
+
       localStorage.setItem('token', access_token);
+      setAuthHeader(access_token);
       return true;
     } catch (error) {
       console.error('Erreur lors du rafraîchissement du token:', error);
@@ -172,7 +187,6 @@ const AuthProvider = ({ children }) => {
 
   // Déconnexion
   const logout = () => {
-    // Appel API pour invalider le token côté serveur (si disponible)
     try {
       api
         .post('/auth/logout')
@@ -183,19 +197,16 @@ const AuthProvider = ({ children }) => {
       console.error('Erreur lors de la déconnexion:', error);
     }
 
-    // Nettoyage local
     localStorage.removeItem('token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
+    setAuthHeader(null);
     setUser(null);
     setIsAuthenticated(false);
     setAuthError(null);
   };
 
-  // Effacer les erreurs d'authentification
-  const clearError = () => {
-    setAuthError(null);
-  };
+  const clearError = () => setAuthError(null);
 
   return (
     <AuthContext.Provider
@@ -219,11 +230,9 @@ const AuthProvider = ({ children }) => {
 };
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within an AuthProvider');
+  return ctx;
 };
 
 export { AuthContext, AuthProvider };
