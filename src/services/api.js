@@ -83,14 +83,14 @@ export const createTicket = async (offerId, token) => {
 };
 
 //PAYMENTS
-export const simulatePayment = async (ticketId, token) => {
-  const response = await api.post(
-    '/payment/simulate',
-    { ticket_id: ticketId },
-    {
-      headers: { Authorization: `Bearer ${token}` },
-    }
-  );
+export const simulatePayment = async ({ ticketId, reservationId }, token) => {
+  const payload = {};
+  if (ticketId) payload.ticket_id = ticketId;
+  if (reservationId) payload.reservation_id = reservationId;
+
+  const response = await api.post('/payment/simulate', payload, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
   return response.data;
 };
 

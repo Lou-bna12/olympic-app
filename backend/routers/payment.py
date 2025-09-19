@@ -11,9 +11,11 @@ from routers.auth import get_current_user
 
 router = APIRouter(prefix="/payment", tags=["payment"])
 
+
 class PaymentSimulation(BaseModel):
     ticket_id: int | None = None
     reservation_id: int | None = None
+
 
 @router.post("/simulate", summary="Simulate Payment (+ QR activation)")
 def simulate_payment(
@@ -33,7 +35,7 @@ def simulate_payment(
             raise HTTPException(status_code=404, detail="Ticket non trouvé")
 
     elif payload.reservation_id is not None:
-        # 1) réservation (appartenance)
+        # 1) récupération de la réservation liée
         res = (
             db.query(Reservation)
             .filter(Reservation.id == payload.reservation_id, Reservation.user_id == user.id)
@@ -50,13 +52,25 @@ def simulate_payment(
             .first()
         )
 
-        # 3) auto-création si absent
+        # 3) auto-création du ticket si absent
         if not ticket:
-            offer = db.query(Offer).filter(Offer.name.ilike(res.offer)).first()
-            offer_id = offer.id if offer else 1  # fallback offre "Solo" (id=1)
+            # compatibilité entre champs "offre" (FR) et "offer" (EN)
+            reservation_offer = getattr(res, "offer", None) or getattr(res, "offre", None)
+
+            offer = (
+                db.query(Offer)
+                .filter(Offer.name.ilike(reservation_offer.strip()))
+                .first()
+            )
+            if not offer:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Offer '{reservation_offer}' not found in offers table"
+                )
+
             ticket = Ticket(
                 user_id=user.id,
-                offer_id=offer_id,
+                offer_id=offer.id,
                 reservation_id=res.id,
                 final_key=None,
                 qr_code=None,
@@ -64,15 +78,15 @@ def simulate_payment(
                 is_paid=False,
                 payment_status="pending",
                 payment_date=None,
-                amount=0.0,
+                amount=offer.price,
             )
             db.add(ticket)
-            db.flush()  # pour obtenir ticket.id sans commit
+            db.flush()
 
     else:
         raise HTTPException(status_code=400, detail="ticket_id ou reservation_id requis")
 
-    # 4) marquer payé + final_key + QR payload
+    # 4) mise à jour du ticket comme payé
     if not ticket.final_key:
         ticket.final_key = f"T{user.id}-{ticket.offer_id}-{uuid4().hex[:10]}"
 
@@ -83,7 +97,7 @@ def simulate_payment(
     qr_payload = f"OLY-{ticket.id}-{ticket.final_key}"
     ticket.qr_code = qr_payload
 
-    # 5) statut de la réservation liée
+    # 5) mise à jour de la réservation liée
     if ticket.reservation_id:
         res = db.query(Reservation).filter(Reservation.id == ticket.reservation_id).first()
         if res and res.user_id == user.id:
